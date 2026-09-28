@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
 import {
   LayoutDashboard,
   Users2,
   UserCheck,
+  UserCog,
   MessageSquare,
   FileText,
   BarChart3,
@@ -20,13 +22,28 @@ import {
   HeartPulse,
 } from 'lucide-react';
 
+interface MenuItem {
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  action?: 'duplas' | 'usuarios';
+  badge?: string;
+  active?: boolean;
+}
+
 interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenDuplas?: () => void;
+  onOpenUsuarios?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed: controlledCollapsed, onToggleCollapse, onOpenDuplas }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  collapsed: controlledCollapsed,
+  onToggleCollapse,
+  onOpenDuplas,
+  onOpenUsuarios,
+}) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
@@ -36,12 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed: controlledCollapsed
 
   const isAdmin = user?.rol === 'ADMIN';
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { label: 'Dashboard', icon: LayoutDashboard, href: isAdmin ? '/admin' : '/clinico', active: true },
-    { label: 'Duplas a Cargo', icon: Users2, href: '#duplas', badge: '3' },
+    { label: 'Usuarios', icon: UserCog, action: 'usuarios' as const },
+    { label: 'Duplas a Cargo', icon: Users2, action: 'duplas' as const, badge: '3' },
     { label: 'Pacientes', icon: UserCheck, href: '#pacientes' },
     { label: 'Alertas & Mensajes', icon: MessageSquare, href: '#mensajes' },
-  ];
+  ].filter((item) => item.action !== 'usuarios' || isAdmin);
 
   const toolItems = [
     { label: 'Registro Atenciones', icon: HeartPulse, href: '#atenciones' },
@@ -108,15 +126,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed: controlledCollapsed
             <nav className="space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                const isDuplasItem = item.label === 'Duplas a Cargo';
+                const action =
+                  item.action === 'usuarios' ? onOpenUsuarios : item.action === 'duplas' ? onOpenDuplas : undefined;
 
-                if (isDuplasItem) {
+                if (action) {
                   return (
                     <button
                       key={item.label}
-                      onClick={onOpenDuplas}
+                      onClick={action}
                       className="w-full flex items-center justify-between px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-all text-text-muted hover:text-text hover:bg-zinc-100"
-                      title={isCollapsed ? 'Duplas a Cargo' : undefined}
+                      title={isCollapsed ? item.label : undefined}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Icon className="w-4 h-4 shrink-0 text-text-muted" />
@@ -134,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed: controlledCollapsed
                 return (
                   <Link
                     key={item.label}
-                    href={item.href}
+                    href={item.href ?? '#'}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-all ${
                       item.active
                         ? 'bg-primary/10 text-primary font-semibold shadow-xs'
@@ -142,7 +161,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed: controlledCollapsed
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Icon className={`w-4 h-4 shrink-0 ${item.active ? 'text-primary' : 'text-text-muted'}`} />
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
+                          item.active ? 'text-primary' : 'text-text-muted'
+                        }`}
+                      />
                       {!isCollapsed && <span className="truncate">{item.label}</span>}
                     </div>
                     {!isCollapsed && item.badge && (

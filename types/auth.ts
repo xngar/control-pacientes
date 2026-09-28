@@ -2,12 +2,13 @@ export type UserRole = 'ADMIN' | 'PROFESIONAL';
 
 export interface UserProfile {
   id: string;
+  authId?: string | null;
   email: string;
   nombreCompleto: string;
   rut: string;
   rol: UserRole;
-  especialidad?: string;
-  cargo?: string;
+  especialidad?: string | null;
+  cargo?: string | null;
   avatarUrl?: string;
   activo: boolean;
 }

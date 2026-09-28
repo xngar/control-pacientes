@@ -6,13 +6,16 @@ import { Header } from './Header';
 import { KpiCards } from './KpiCards';
 import { PatientTable } from './PatientTable';
 import { DuplasModal } from './DuplasModal';
+import { UsuariosModal } from './UsuariosModal';
 import { useAuth } from '@/lib/auth/auth-context';
 
 export const DashboardLayout: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDuplasModalOpen, setIsDuplasModalOpen] = useState(false);
+  const [isUsuariosModalOpen, setIsUsuariosModalOpen] = useState(false);
   const { user } = useAuth();
+  const isAdmin = user?.rol === 'ADMIN';
 
   return (
     <div className="min-h-screen bg-background flex flex-row">
@@ -21,6 +24,7 @@ export const DashboardLayout: React.FC = () => {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onOpenDuplas={() => setIsDuplasModalOpen(true)}
+        onOpenUsuarios={isAdmin ? () => setIsUsuariosModalOpen(true) : undefined}
       />
 
       {/* Main Content Area */}
@@ -53,6 +57,11 @@ export const DashboardLayout: React.FC = () => {
         isOpen={isDuplasModalOpen}
         onClose={() => setIsDuplasModalOpen(false)}
       />
+
+      {/* Users Management Modal (ADMIN only) */}
+      {isAdmin && isUsuariosModalOpen && (
+        <UsuariosModal onClose={() => setIsUsuariosModalOpen(false)} />
+      )}
     </div>
   );
 };

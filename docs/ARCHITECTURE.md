@@ -78,9 +78,10 @@ mi-app/
 
 **Flujos críticos** (detallar cada uno)
 
-- Registro / inicio de sesión: [descripción]
+- Inicio de sesión: `app/login` llama a `signInWithPassword` de Supabase Auth. La sesión (JWT) vive en el cliente oficial; `AuthProvider` la hidrata y resuelve el perfil leyendo `usuarios_clinicos` por `auth_id`. Si no hay perfil o está `activo = false`, se cierra la sesión. El `rol` sale de la base, nunca del navegador.
+- Recuperación de contraseña: `app/recuperar-contrasena` envía `resetPasswordForEmail` con redirect a sí misma; al volver con el enlace, Supabase Auth establece una sesión temporal y la página fija la nueva contraseña con `updateUser`.
+- Alta de usuarios (solo ADMIN): la UI (`components/dashboard/UsuariosModal.tsx`) llama a `POST /api/admin/usuarios`. El Route Handler valida el JWT de la request, confirma que el llamador es ADMIN y usa la `service_role` para crear el usuario en Auth y su fila en `usuarios_clinicos`. RLS impide que un PROFESIONAL escriba por PostgREST.
 - Pago: [descripción]
-- [Otro flujo clave]
 
 ---
 
@@ -121,6 +122,7 @@ mi-app/
 | 2026-09-28 | **TypeScript como Lenguaje Principal** | Tipado estricto de extremo a extremo que previene errores en tiempo de compilación al manejar datos sensibles de pacientes y esquemas de base de datos. | **JavaScript Vanilla:** Mayor propensión a errores en runtime con estructuras de datos complejas. |
 | 2026-09-28 | **Supabase (PostgreSQL + Auth + RLS) como BaaS** | Base de datos relacional para historial clínico, autenticación integrada y políticas de seguridad a nivel de fila (RLS) para cumplimiento de la Ley 19.628. | **Firebase / Firestore:** Modelo NoSQL poco óptimo para reportes y analítica relacional.<br>**Backend personalizado (Node/Express):** Mayor costo de desarrollo y mantenimiento de infraestructura. |
 | 2026-09-28 | **Tailwind CSS con Design Tokens** | Implementación ágil y exacta del Design System sin sobrecarga de runtime, asegurando un bundle CSS mínimo y optimizado. | **Material UI / Styled Components:** Mayor peso de JavaScript y estilos menos personalizables. |
+| 2026-09-28 | **Supabase Auth como única fuente de credenciales** | El login estaba hardcodeado en el front con contraseñas en texto plano, y `usuarios_clinicos.password_hash` era legible por cualquier cliente anónimo. Supabase Auth aporta hash con bcrypt, recuperación por correo y un identificador estable para las políticas RLS. | **Tabla propia con hash en la app:** exigiría una librería de hashing, envío de correos propio y no habilita el flujo de recuperación estándar. |
 | 2026-09-28 | **Despliegue e Infraestructura en Vercel** | CI/CD automático, despliegues sin servidor (serverless) con escalabilidad instantánea y red Edge global optimizada para Next.js. | **AWS / VPS propio (EC2/DigitalOcean):** Complejidad innecesaria de administración de servidores y mantenimiento DevOps. |
 
 ---

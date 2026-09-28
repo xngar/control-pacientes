@@ -2,14 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
-import { DEMO_USERS } from '@/lib/auth/mock-users';
 import {
   Search,
   Mail,
   Bell,
   ChevronDown,
   LogOut,
-  Sparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 
@@ -19,7 +17,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onSearch, searchQuery = '' }) => {
-  const { user, logout, quickLogin } = useAuth();
+  const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -113,31 +111,6 @@ export const Header: React.FC<HeaderProps> = ({ onSearch, searchQuery = '' }) =>
               </div>
 
               {/* Fast switch demo account */}
-              <div className="p-2 border-b border-border">
-                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider px-2 mb-1.5 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-primary" /> Cambiar de Perfil
-                </p>
-                <div className="space-y-1">
-                  {DEMO_USERS.map((demo) => (
-                    <button
-                      key={demo.id}
-                      onClick={() => {
-                        quickLogin(demo.id);
-                        setDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-[var(--radius-xs)] text-xs flex items-center justify-between hover:bg-zinc-100 transition-colors ${
-                        demo.id === user?.id ? 'bg-primary/10 text-primary font-medium' : 'text-text'
-                      }`}
-                    >
-                      <span className="truncate">{demo.nombreCompleto}</span>
-                      <span className="text-[9px] text-text-muted uppercase">
-                        {demo.rol === 'ADMIN' ? 'Admin' : 'Pro'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="p-1">
                 <button
                   onClick={() => {

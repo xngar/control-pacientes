@@ -1,24 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
-import { DEMO_USERS } from '@/lib/auth/mock-users';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import {
   Activity,
-  ShieldCheck,
-  Stethoscope,
   Lock,
   Mail,
   AlertCircle,
   CheckCircle2,
-  Sparkles,
+  KeyRound,
 } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login, quickLogin, isLoading } = useAuth();
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -115,54 +112,15 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {/* Quick Demo Access Bar */}
-            <div className="pt-4 border-t border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-accent" /> Acceso Rápido de Prueba
-                </span>
-                <span className="text-[11px] text-text-muted">1-clic</span>
-              </div>
-
-              <div className="space-y-2">
-                {DEMO_USERS.map((demo) => {
-                  const isAdmin = demo.rol === 'ADMIN';
-                  return (
-                    <button
-                      key={demo.id}
-                      type="button"
-                      onClick={() => quickLogin(demo.id)}
-                      className="w-full flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] border border-border bg-zinc-50/70 hover:bg-white hover:border-primary/40 hover:shadow-xs transition-all text-left group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-7 h-7 rounded-[var(--radius-full)] flex items-center justify-center text-xs font-semibold ${isAdmin
-                              ? 'bg-accent/15 text-accent'
-                              : 'bg-primary/15 text-primary'
-                            }`}
-                        >
-                          {isAdmin ? (
-                            <ShieldCheck className="w-4 h-4" />
-                          ) : (
-                            <Stethoscope className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-text group-hover:text-primary transition-colors">
-                            {demo.nombreCompleto}
-                          </p>
-                          <p className="text-[11px] text-text-muted">
-                            {demo.cargo || demo.especialidad}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant={isAdmin ? 'admin' : 'pro'} className="text-[10px]">
-                        {isAdmin ? 'ADMIN' : 'PROFESIONAL'}
-                      </Badge>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Password Recovery */}
+            <div className="pt-4 border-t border-border text-center">
+              <Link
+                href="/recuperar-contrasena"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover hover:underline transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                ¿Olvidaste tu contraseña?
+              </Link>
             </div>
           </div>
 
