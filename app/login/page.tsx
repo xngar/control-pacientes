@@ -37,7 +37,7 @@ export default function LoginPage() {
       setError(res.error || 'Error al iniciar sesión.');
     }
   };
-
+  //zona
   return (
     <div className="min-h-screen flex flex-col justify-between bg-background relative overflow-hidden">
       {/* Background visual accents */}
@@ -136,11 +136,10 @@ export default function LoginPage() {
                     >
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-7 h-7 rounded-[var(--radius-full)] flex items-center justify-center text-xs font-semibold ${
-                            isAdmin
+                          className={`w-7 h-7 rounded-[var(--radius-full)] flex items-center justify-center text-xs font-semibold ${isAdmin
                               ? 'bg-accent/15 text-accent'
                               : 'bg-primary/15 text-primary'
-                          }`}
+                            }`}
                         >
                           {isAdmin ? (
                             <ShieldCheck className="w-4 h-4" />
