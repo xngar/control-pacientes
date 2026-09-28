@@ -1,0 +1,41 @@
+export interface RegistroPaciente {
+  id?: string;
+  numero: number;
+  duplaACargo: string;
+  duplaId?: string;
+  estado: 'Activo' | 'En Seguimiento' | 'Egresado' | 'En Espera' | 'Derivado';
+  fechaDerivacionDupla: string;
+  fechaEgreso: string;
+  fechaMaximaContactoInicial: string;
+  fechaIngresoUego: string;
+  observacionesIngreso: string;
+  nombre: string;
+  rut: string;
+  edad: number;
+  eg: string;
+  tipologia: string;
+  diagnostico: string;
+  observacionesDiagnostico: string;
+  ingresoHorarioEspecial: 'Sí' | 'No' | 'Fin de semana' | 'Horario Inhábil' | 'Feriado' | 'UEGO';
+  telefono: string;
+  observacionesContacto: string;
+  migrante: 'Sí' | 'No';
+  puebloOriginario: 'No' | 'Mapuche' | 'Aymara' | 'Rapa Nui' | 'Otro';
+  entregaRecuerdo: 'Sí' | 'No';
+  entregaDiptico: 'Sí' | 'No';
+  acompanamientoAtencionCerrada: 'Sí' | 'No';
+  controlAmbulatorioPsicosocial: 'Sí' | 'No';
+  // Atenciones 1 al 10
+  atencion1: string;
+  atencion2: string;
+  atencion3: string;
+  atencion4: string;
+  atencion5: string;
+  atencion6: string;
+  atencion7: string;
+  atencion8: string;
+  atencion9: string;
+  atencion10: string;
+  totalAtenciones: number;
+  observacionAtenciones: string;
+}
