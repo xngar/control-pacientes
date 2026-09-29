@@ -141,6 +141,36 @@ export const pacienteService = {
     }
   },
 
+  /**
+   * Borra la ficha. Se exige .select() porque RLS no lanza error cuando bloquea
+   * una escritura: simplemente no devuelve filas. Sin comprobar eso, un borrado
+   * prohibido por permisos se reportaria como exitoso.
+   */
+  async remove(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('pacientes_seguimiento')
+        .delete()
+        .eq('id', id)
+        .select('id');
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return {
+          success: false,
+          error: 'No se pudo eliminar la ficha. Revisa tus permisos e inténtalo nuevamente.',
+        };
+      }
+
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al eliminar paciente';
+      console.error('Error deleting patient in Supabase:', err);
+      return { success: false, error: message };
+    }
+  },
+
   async update(id: string, paciente: Partial<RegistroPaciente>): Promise<{ success: boolean; error?: string }> {
     try {
       const payload: any = {

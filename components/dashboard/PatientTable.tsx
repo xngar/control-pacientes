@@ -9,9 +9,11 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Badge } from '@/components/ui/Badge';
 import { PatientDetailModal } from './PatientDetailModal';
 import { PatientFormModal } from './PatientFormModal';
+import { PacienteDeleteModal } from './PacienteDeleteModal';
 import {
   Pencil,
   Eye,
+  Trash2,
   UserPlus,
   Download,
   AlertCircle,
@@ -61,6 +63,9 @@ export const PatientTable: React.FC<PatientTableProps> = ({
   const [selectedPatient, setSelectedPatient] = useState<RegistroPaciente | null>(null);
   const [patientToEdit, setPatientToEdit] = useState<RegistroPaciente | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<RegistroPaciente | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { data, status, sourceNotice, refresh } = pacientes;
 
@@ -88,6 +93,37 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     if (selectedPatient?.id === saved.id) {
       setSelectedPatient(saved);
     }
+    void refresh();
+  };
+
+  const openDeleteModal = (paciente: RegistroPaciente) => {
+    setDeleteError(null);
+    setPatientToDelete(paciente);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!patientToDelete) return;
+
+    // Sin id no hay forma de armar el WHERE del borrado: en modo demo las filas
+    // son objects sin clave, y una consulta sin filtro vaciaria la tabla entera.
+    if (!patientToDelete.id) {
+      setDeleteError('Este registro es de demostración y no se puede eliminar.');
+      return;
+    }
+
+    setIsDeleting(true);
+    const { success, error } = await pacienteService.remove(patientToDelete.id);
+    setIsDeleting(false);
+
+    if (!success) {
+      setDeleteError(error || 'No fue posible eliminar la ficha.');
+      return;
+    }
+
+    // Se cierra la ficha antes de refrescar para no dejar el modal apuntando a
+    // un registro que ya no existe.
+    setPatientToDelete(null);
+    setSelectedPatient((actual) => (actual?.id === patientToDelete.id ? null : actual));
     void refresh();
   };
 
@@ -330,6 +366,9 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 Registro clínico de pacientes con estado, dupla a cargo, diagnóstico y atenciones
               </caption>
               <thead>
+                {/* whitespace-nowrap + truncate en las celdas: con 37 columnas el
+                    ancho lo impone el contenido, y sin esto las celdas de texto
+                    largo parten en varias lineas y duplican la altura de la fila. */}
                 <tr className="bg-surface-muted border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
                   <th scope="col" className="py-3 px-4 sticky left-0 bg-surface-muted z-20">Acciones</th>
                   <th scope="col" className="py-3 px-3 sticky left-20 bg-surface-muted z-20">N°</th>
@@ -343,15 +382,15 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                   <th scope="col" className="py-3 px-4">Fecha egreso</th>
                   <th scope="col" className="py-3 px-4">Fecha máx. contacto</th>
                   <th scope="col" className="py-3 px-4">Fecha ingreso UEGO</th>
-                  <th scope="col" className="py-3 px-6 min-w-[200px]">Observaciones ingreso</th>
+                  <th scope="col" className="py-3 px-6 max-w-[200px] truncate">Observaciones ingreso</th>
                   <th scope="col" className="py-3 px-3">Edad</th>
                   <th scope="col" className="py-3 px-3">EG</th>
                   <th scope="col" className="py-3 px-4">Tipología</th>
-                  <th scope="col" className="py-3 px-6 min-w-[220px]">Diagnóstico</th>
-                  <th scope="col" className="py-3 px-6 min-w-[200px]">Obs. diagnóstico</th>
+                  <th scope="col" className="py-3 px-6 max-w-[220px] truncate">Diagnóstico</th>
+                  <th scope="col" className="py-3 px-6 max-w-[200px] truncate">Obs. diagnóstico</th>
                   <th scope="col" className="py-3 px-4">Ingreso fin semana / UEGO</th>
                   <th scope="col" className="py-3 px-4">Teléfono</th>
-                  <th scope="col" className="py-3 px-6 min-w-[180px]">Obs. contacto</th>
+                  <th scope="col" className="py-3 px-6 max-w-[180px] truncate">Obs. contacto</th>
                   <th scope="col" className="py-3 px-3 text-center">Migrante</th>
                   <th scope="col" className="py-3 px-4 text-center">Pueblo originario</th>
                   <th scope="col" className="py-3 px-3 text-center">Entrega recuerdo</th>
@@ -364,15 +403,14 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                     </th>
                   ))}
                   <th scope="col" className="py-3 px-4 text-center">Total atenciones</th>
-                  <th scope="col" className="py-3 px-6 min-w-[240px]">Obs. atenciones</th>
+                  <th scope="col" className="py-3 px-6 max-w-[240px] truncate">Obs. atenciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((paciente) => (
                   <tr
                     key={paciente.id}
-                    className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
-                    onClick={() => setSelectedPatient(paciente)}
+                    className="border-b border-border hover:bg-primary/5 transition-colors"
                   >
                     <td className="py-2.5 px-4 sticky left-0 bg-surface z-10">
                       <div className="flex items-center gap-1">
@@ -393,6 +431,14 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </IconButton>
+                        <IconButton
+                          label={`Eliminar ficha de ${paciente.nombre}`}
+                          size="sm"
+                          tone="danger"
+                          onClick={() => openDeleteModal(paciente)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </IconButton>
                       </div>
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-text-muted sticky left-20 bg-surface z-10 tnum">
@@ -406,24 +452,28 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                         <span className="truncate max-w-[180px]">{paciente.nombre}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 px-4 font-mono text-text tnum">{paciente.rut}</td>
-                    <td className="py-2.5 px-4">
+                    <td className="py-2.5 px-4 font-mono text-text tnum whitespace-nowrap">{paciente.rut}</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">
                       <Badge variant={getEstadoVariant(paciente.estado)}>{paciente.estado}</Badge>
                     </td>
-                    <td className="py-2.5 px-5 font-medium text-text">{paciente.duplaACargo}</td>
-                    <td className="py-2.5 px-4 tnum">{paciente.fechaDerivacionDupla || '—'}</td>
-                    <td className="py-2.5 px-4 tnum">{paciente.fechaEgreso || 'En curso'}</td>
-                    <td className="py-2.5 px-4 tnum">{paciente.fechaMaximaContactoInicial || '—'}</td>
-                    <td className="py-2.5 px-4 tnum">{paciente.fechaIngresoUego || '—'}</td>
+                    <td className="py-2.5 px-5 font-medium text-text max-w-[160px] truncate" title={paciente.duplaACargo}>
+                      {paciente.duplaACargo}
+                    </td>
+                    <td className="py-2.5 px-4 tnum whitespace-nowrap">{paciente.fechaDerivacionDupla || '—'}</td>
+                    <td className="py-2.5 px-4 tnum whitespace-nowrap">{paciente.fechaEgreso || 'En curso'}</td>
+                    <td className="py-2.5 px-4 tnum whitespace-nowrap">{paciente.fechaMaximaContactoInicial || '—'}</td>
+                    <td className="py-2.5 px-4 tnum whitespace-nowrap">{paciente.fechaIngresoUego || '—'}</td>
                     <td
                       className="py-2.5 px-6 text-text-muted max-w-[220px] truncate"
                       title={paciente.observacionesIngreso}
                     >
                       {paciente.observacionesIngreso || '—'}
                     </td>
-                    <td className="py-2.5 px-3 font-semibold tnum">{paciente.edad}</td>
-                    <td className="py-2.5 px-3 text-text-muted">{paciente.eg}</td>
-                    <td className="py-2.5 px-4 font-medium text-text">{paciente.tipologia}</td>
+                    <td className="py-2.5 px-3 font-semibold tnum whitespace-nowrap">{paciente.edad}</td>
+                    <td className="py-2.5 px-3 text-text-muted whitespace-nowrap">{paciente.eg}</td>
+                    <td className="py-2.5 px-4 font-medium text-text max-w-[140px] truncate" title={paciente.tipologia}>
+                      {paciente.tipologia}
+                    </td>
                     <td
                       className="py-2.5 px-6 font-semibold text-text max-w-[240px] truncate"
                       title={paciente.diagnostico}
@@ -436,8 +486,8 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                     >
                       {paciente.observacionesDiagnostico || '—'}
                     </td>
-                    <td className="py-2.5 px-4">{paciente.ingresoHorarioEspecial}</td>
-                    <td className="py-2.5 px-4 font-mono tnum">{paciente.telefono}</td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">{paciente.ingresoHorarioEspecial}</td>
+                    <td className="py-2.5 px-4 font-mono tnum whitespace-nowrap">{paciente.telefono}</td>
                     <td
                       className="py-2.5 px-6 text-text-muted max-w-[180px] truncate"
                       title={paciente.observacionesContacto}
@@ -445,7 +495,9 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                       {paciente.observacionesContacto || '—'}
                     </td>
                     <td className="py-2.5 px-3 text-center"><SíNo value={paciente.migrante} /></td>
-                    <td className="py-2.5 px-4 text-center text-text-muted">{paciente.puebloOriginario}</td>
+                    <td className="py-2.5 px-4 text-center text-text-muted max-w-[140px] truncate" title={paciente.puebloOriginario}>
+                      {paciente.puebloOriginario}
+                    </td>
                     <td className="py-2.5 px-3 text-center"><SíNo value={paciente.entregaRecuerdo} /></td>
                     <td className="py-2.5 px-3 text-center"><SíNo value={paciente.entregaDiptico} /></td>
                     <td className="py-2.5 px-4 text-center">
@@ -458,7 +510,11 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                       const key = `atencion${i + 1}` as keyof RegistroPaciente;
                       const value = paciente[key];
                       return (
-                        <td key={i} className="py-2.5 px-4 text-text-muted tnum">
+                        <td
+                          key={i}
+                          className="py-2.5 px-4 text-text-muted tnum max-w-[180px] truncate"
+                          title={(value as string) || undefined}
+                        >
                           {(value as string) || '—'}
                         </td>
                       );
@@ -479,7 +535,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
           </div>
           <p className="px-4 py-3 text-[13px] text-text-muted border-t border-border flex items-center gap-1.5">
             <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
-            Selecciona una fila para abrir la ficha clínica completa.
+            Usa el ojo para ver la ficha, el lápiz para editarla y la papelera para eliminarla.
           </p>
         </>
       )}
@@ -499,6 +555,18 @@ export const PatientTable: React.FC<PatientTableProps> = ({
         onClose={() => setIsFormModalOpen(false)}
         onSaved={handleSavedPatient}
         pacienteToEdit={patientToEdit}
+      />
+
+      <PacienteDeleteModal
+        paciente={patientToDelete}
+        isDeleting={isDeleting}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onClose={() => {
+          if (isDeleting) return;
+          setPatientToDelete(null);
+          setDeleteError(null);
+        }}
       />
     </section>
   );
