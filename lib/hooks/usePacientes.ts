@@ -28,6 +28,28 @@ export const usePacientes = (): UsePacientesResult => {
   const [status, setStatus] = useState<PacientesStatus>('loading');
   const [sourceNotice, setSourceNotice] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    pacienteService.getAll().then(
+      (result) => {
+        if (cancelled) return;
+        setData(result.data);
+        setSourceNotice(result.source === 'demo' ? DEMO_NOTICE : null);
+        setStatus('ready');
+      },
+      () => {
+        if (cancelled) return;
+        setSourceNotice(DEMO_NOTICE);
+        setStatus('error');
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const refresh = useCallback(async () => {
     setStatus('loading');
     try {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { UserProfile } from '@/types/auth';
+import { perfilService, type ActualizarPerfilPayload } from '@/services/perfilService';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -12,6 +13,9 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  updateProfile: (
+    payload: ActualizarPerfilPayload
+  ) => Promise<{ success: boolean; emailChanged?: boolean; error?: string }>;
 }
 
 type ProfileResult =
@@ -186,8 +190,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   }, [router, signOut]);
 
+  const updateProfile = useCallback(
+    async (
+      payload: ActualizarPerfilPayload
+    ): Promise<{ success: boolean; emailChanged?: boolean; error?: string }> => {
+      const { profile, emailChanged, error } = await perfilService.update(payload);
+
+      if (error || !profile) {
+        return { success: false, error: error || 'No fue posible guardar tu perfil.' };
+      }
+
+      setUser(profile);
+      return { success: true, emailChanged };
+    },
+    []
+  );
+
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, session, isLoading, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

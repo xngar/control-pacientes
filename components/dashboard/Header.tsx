@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { Badge } from '@/components/ui/Badge';
 import { IconButton } from '@/components/ui/IconButton';
-import { Search, Mail, Bell, ChevronDown, LogOut, X, Menu } from 'lucide-react';
+import { Search, Mail, Bell, ChevronDown, LogOut, X, Menu, UserCog } from 'lucide-react';
 
 const PENDING_TOOLS = [
   { label: 'Notificaciones', icon: Bell },
@@ -17,6 +17,7 @@ interface HeaderProps {
   onSearch: (value: string) => void;
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
+  onOpenPerfil: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSearch,
   onToggleSidebar,
   sidebarOpen,
+  onOpenPerfil,
 }) => {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -149,6 +151,17 @@ export const Header: React.FC<HeaderProps> = ({
                     </Badge>
                   )}
                 </div>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onOpenPerfil();
+                  }}
+                  className="w-full text-left px-3 py-2 text-[13px] text-text-muted rounded-[var(--radius-xs)] hover:bg-surface-muted hover:text-text flex items-center gap-2 cursor-pointer"
+                >
+                  <UserCog className="w-3.5 h-3.5" aria-hidden="true" />
+                  Mi perfil
+                </button>
                 <Link
                   href={isAdmin ? '/admin' : '/clinico'}
                   role="menuitem"

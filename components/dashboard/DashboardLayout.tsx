@@ -7,6 +7,7 @@ import { KpiCards } from './KpiCards';
 import { PatientTable } from './PatientTable';
 import { DuplasModal } from './DuplasModal';
 import { UsuariosModal } from './UsuariosModal';
+import { PerfilModal } from './PerfilModal';
 import { useAuth } from '@/lib/auth/auth-context';
 import { usePacientes } from '@/lib/hooks/usePacientes';
 
@@ -16,6 +17,7 @@ export const DashboardLayout: React.FC = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isDuplasModalOpen, setIsDuplasModalOpen] = useState(false);
   const [isUsuariosModalOpen, setIsUsuariosModalOpen] = useState(false);
+  const [isPerfilModalOpen, setIsPerfilModalOpen] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.rol === 'ADMIN';
   const pacientes = usePacientes();
@@ -37,6 +39,7 @@ export const DashboardLayout: React.FC = () => {
           onSearch={setSearchQuery}
           onToggleSidebar={() => setMobileNavOpen((o) => !o)}
           sidebarOpen={mobileNavOpen}
+          onOpenPerfil={() => setIsPerfilModalOpen(true)}
         />
 
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-full overflow-x-hidden">
@@ -65,6 +68,8 @@ export const DashboardLayout: React.FC = () => {
       {isAdmin && isUsuariosModalOpen && (
         <UsuariosModal onClose={() => setIsUsuariosModalOpen(false)} />
       )}
+
+      {isPerfilModalOpen && <PerfilModal onClose={() => setIsPerfilModalOpen(false)} />}
     </div>
   );
 };

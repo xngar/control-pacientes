@@ -18,3 +18,22 @@ export function getServiceRoleClient(): SupabaseClient {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+/**
+ * Cliente con la clave anonima, usado unicamente para comprobar una contraseña
+ * mediante signInWithPassword. El cliente de service_role no sirve para eso:
+ * sus peticiones se autentican como el propio rol de servicio.
+ */
+export function getAnonClient(): SupabaseClient {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      'Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY en el entorno del servidor.'
+    );
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
