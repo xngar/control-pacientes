@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useId } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
+import { notificar } from '@/lib/notifications';
 import { duplaService } from '@/services/duplaService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -120,9 +121,11 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         const res = await pacienteService.update(pacienteToEdit.id, formData);
         if (!res.success) {
           setError(res.error || 'No se pudo actualizar el paciente.');
+          notificar.fallo('No se pudo actualizar la ficha', res.error);
           setIsSaving(false);
           return;
         }
+        notificar.exito('Ficha actualizada', `Los cambios de ${formData.nombre.trim()} quedaron guardados.`);
         onSaved({
           ...formData,
           id: pacienteToEdit.id,
@@ -132,14 +135,18 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         const res = await pacienteService.create(formData);
         if (res.error || !res.data) {
           setError(res.error || 'No se pudo guardar el paciente.');
+          notificar.fallo('No se pudo guardar la ficha', res.error);
           setIsSaving(false);
           return;
         }
+        notificar.exito('Paciente agregado', `${formData.nombre.trim()} quedó registrado en la lista.`);
         onSaved(res.data);
       }
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el paciente.');
+      const detalle = err instanceof Error ? err.message : 'No se pudo guardar el paciente.';
+      setError(detalle);
+      notificar.fallo('No se pudo guardar la ficha', detalle);
     } finally {
       setIsSaving(false);
     }

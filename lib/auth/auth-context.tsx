@@ -12,7 +12,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<{ success: boolean; error?: string }>;
   updateProfile: (
     payload: ActualizarPerfilPayload
   ) => Promise<{
@@ -86,11 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     setUser(null);
     setSession(null);
     const { error } = await supabase.auth.signOut();
-    if (error) console.error('Error al cerrar sesión', error);
+    if (error) {
+      console.error('Error al cerrar sesión', error);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
   }, []);
 
   useEffect(() => {
@@ -188,11 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [router, signOut]
   );
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    await signOut();
+    const result = await signOut();
     setIsLoading(false);
     router.push('/login');
+    return result;
   }, [router, signOut]);
 
   const updateProfile = useCallback(

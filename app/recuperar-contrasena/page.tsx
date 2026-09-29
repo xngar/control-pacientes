@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { notificar } from '@/lib/notifications';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -70,9 +71,11 @@ export default function RecuperarContrasenaPage() {
           ? 'Demasiados intentos. Espera unos minutos antes de volver a solicitar.'
           : 'No fue posible enviar el correo de recuperación. Inténtalo nuevamente.'
       );
+      notificar.fallo('No se pudo enviar el correo', 'Revisa la dirección e inténtalo nuevamente.');
       return;
     }
 
+    notificar.exito('Enlace enviado', `Revisa el correo de ${email.trim()} para elegir una contraseña.`);
     setSent(true);
   };
 
@@ -98,9 +101,11 @@ export default function RecuperarContrasenaPage() {
 
     if (updateError) {
       setError('No fue posible actualizar la contraseña. El enlace pudo haber vencido.');
+      notificar.fallo('No se pudo guardar la contraseña', 'El enlace pudo haber vencido.');
       return;
     }
 
+    notificar.exito('Contraseña actualizada', 'Ya puedes ingresar con la nueva contraseña.');
     setUpdated(true);
     setTimeout(() => router.push('/login'), 2500);
   };

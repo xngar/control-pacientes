@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
+import { notificar } from '@/lib/notifications';
 import { Badge } from '@/components/ui/Badge';
 import { IconButton } from '@/components/ui/IconButton';
 import { Search, Mail, Bell, ChevronDown, LogOut, X, Menu, UserCog } from 'lucide-react';
@@ -172,9 +173,20 @@ export const Header: React.FC<HeaderProps> = ({
                 </Link>
                 <button
                   role="menuitem"
-                  onClick={() => {
+                  onClick={async () => {
                     setIsMenuOpen(false);
-                    logout();
+                    const { success, error } = await logout();
+                    // El provider limpia el estado local aunque signOut falle, asi
+                    // que igual se redirige a /login. Si el servidor no confirmo
+                    // el cierre, el token podria seguir guardado en el navegador.
+                    if (!success) {
+                      notificar.aviso(
+                        'La sesión se cerró solo en este dispositivo',
+                        error
+                          ? `El servidor no confirmó el cierre: ${error}. Vuelve a intentarlo por seguridad.`
+                          : 'El servidor no confirmó el cierre. Vuelve a intentarlo por seguridad.'
+                      );
+                    }
                   }}
                   className="w-full text-left px-3 py-2 text-[13px] text-error-text rounded-[var(--radius-xs)] hover:bg-error/10 flex items-center gap-2 cursor-pointer"
                 >

@@ -204,6 +204,30 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+/* Notificaciones (sileo).
+   La libreria trae su propia paleta en oklch. Se remapeara a los tokens del
+   proyecto para que los avisos no introduzcan colores ajenos al design system.
+
+   El aviso se dibuja sobre el relleno oscuro de sileo, asi que se usan los tonos
+   base y NO las variantes *-text: estas estan calibradas sobre blanco y bajan a
+   2,4:1-3,5:1 sobre el relleno, por debajo de AA. Los tonos base rinden
+   4,7:1-8,1:1. El estado sigue identificandose por el color del titulo y del
+   badge, igual que en components/ui/Badge.tsx. */
+[data-sileo-viewport] {
+  --sileo-state-success: var(--color-success);
+  --sileo-state-error: var(--color-error);
+  --sileo-state-warning: var(--color-warning);
+  --sileo-state-info: var(--color-info);
+  /* El estado "action" no lo emite la aplicacion, pero se deja correcto:
+     --color-primary se queda en 3,8:1 sobre el relleno, asi que se usa info. */
+  --sileo-state-action: var(--color-info);
+  --sileo-width: 360px;
+}
+
+/* El color del texto secundario y del trazo los deja sileo por tema: su valor
+   para el relleno oscuro (blanco al 50%) alcanza 5,2:1. No se sobreescriben con
+   tokens de superficie clara, que aqui quedarian ilegibles. */
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

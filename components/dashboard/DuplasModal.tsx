@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useId } from 'react';
 import { DuplaAtencion } from '@/types/dupla';
 import { UserProfile } from '@/types/auth';
 import { duplaService } from '@/services/duplaService';
+import { notificar } from '@/lib/notifications';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
 import { Modal } from '@/components/ui/Modal';
@@ -130,6 +131,7 @@ export const DuplasModal: React.FC<DuplasModalProps> = ({ isOpen, onClose }) => 
         activa: form.activa,
       });
       if (res.success) {
+        notificar.exito('Dupla actualizada', `${form.nombreDupla.trim()} quedó guardada.`);
         setSuccessMsg('Dupla actualizada correctamente.');
         await fetchAll();
         setTimeout(() => {
@@ -138,6 +140,7 @@ export const DuplasModal: React.FC<DuplasModalProps> = ({ isOpen, onClose }) => 
         }, 1200);
       } else {
         setError(res.error || 'Error al guardar.');
+        notificar.fallo('No se pudo guardar la dupla', res.error);
       }
     } else if (view === 'create') {
       const res = await duplaService.create({
@@ -147,6 +150,7 @@ export const DuplasModal: React.FC<DuplasModalProps> = ({ isOpen, onClose }) => 
         activa: form.activa,
       });
       if (res.data) {
+        notificar.exito('Dupla creada', `${form.nombreDupla.trim()} ya está disponible.`);
         setSuccessMsg('Dupla creada correctamente.');
         await fetchAll();
         setTimeout(() => {
@@ -155,6 +159,7 @@ export const DuplasModal: React.FC<DuplasModalProps> = ({ isOpen, onClose }) => 
         }, 1200);
       } else {
         setError(res.error || 'Error al crear.');
+        notificar.fallo('No se pudo crear la dupla', res.error);
       }
     }
 

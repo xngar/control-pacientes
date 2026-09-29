@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { UsuarioGestionado, usuarioService } from '@/services/usuarioService';
+import { notificar } from '@/lib/notifications';
 import { useAuth } from '@/lib/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -116,9 +117,14 @@ export const UsuariosModal: React.FC<UsuariosModalProps> = ({ onClose }) => {
 
     if (error) {
       setFeedback({ success: false, message: error });
+      notificar.fallo('No se pudo crear la cuenta', error);
       return;
     }
 
+    notificar.exito(
+      'Cuenta creada',
+      `${data?.nombreCompleto ?? form.email} ya puede ingresar a la plataforma.`
+    );
     setFeedback({ success: true, message: `Cuenta creada para ${data?.nombreCompleto ?? form.email}.` });
     await fetchAll();
     setTimeout(() => {
@@ -154,6 +160,7 @@ export const UsuariosModal: React.FC<UsuariosModalProps> = ({ onClose }) => {
       if (error) {
         setIsSaving(false);
         setFeedback({ success: false, message: error });
+        notificar.fallo('No se pudo actualizar la contraseña', error);
         return;
       }
       lastMessage = 'Contraseña actualizada.';
@@ -164,9 +171,11 @@ export const UsuariosModal: React.FC<UsuariosModalProps> = ({ onClose }) => {
 
     if (error) {
       setFeedback({ success: false, message: error });
+      notificar.fallo('No se pudo actualizar el usuario', error);
       return;
     }
 
+    notificar.exito('Usuario actualizado', lastMessage);
     setFeedback({ success: true, message: lastMessage });
     await fetchAll();
     setTimeout(() => {
@@ -181,11 +190,18 @@ export const UsuariosModal: React.FC<UsuariosModalProps> = ({ onClose }) => {
     setIsSaving(false);
 
     if (error) {
+      // Este handler se dispara desde la vista de listado, donde el bloque que
+      // renderiza `feedback` no existe. Antes del aviso el fallo era invisible.
       setFeedback({ success: false, message: error });
+      notificar.fallo('No se pudo cambiar el estado', error);
       setTimeout(() => setFeedback(null), 3000);
       return;
     }
 
+    notificar.exito(
+      usuario.activo ? 'Usuario desactivado' : 'Usuario activado',
+      `${usuario.nombreCompleto} ${usuario.activo ? 'ya no puede ingresar' : 'puede ingresar otra vez'}.`
+    );
     await fetchAll();
   };
 

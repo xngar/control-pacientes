@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal';
 import { CardFooter } from '@/components/ui/Card';
 import { AlertCircle, CheckCircle2, Hash, KeyRound, Save, ShieldCheck, Stethoscope, UserCircle2, X, Mail } from 'lucide-react';
 import { esRutValido, formatearRut, normalizarRut } from '@/lib/utils/rut';
+import { notificar } from '@/lib/notifications';
 
 interface PerfilModalProps {
   onClose: () => void;
@@ -104,8 +105,26 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
 
     if (!success) {
       setFeedback({ ok: false, message: error || 'No fue posible guardar tu perfil.' });
+      notificar.fallo('No se pudo actualizar tu perfil', error);
       return;
     }
+
+    // El aviso sobrevive al cierre del modal, que ocurre 1,6 s despues. Nombrar
+    // los campos tocados evita tener que reabrir el perfil para saber que paso.
+    const cambios: string[] = [];
+    if (nombreCompleto.trim() !== user.nombreCompleto) cambios.push('nombre');
+    if (especialidad.trim() !== (user.especialidad ?? '')) cambios.push('especialidad');
+    if (cargo.trim() !== (user.cargo ?? '')) cambios.push('cargo');
+    if (rutChanges) cambios.push('RUT');
+    if (emailChanges) cambios.push('correo de acceso');
+    if (passwordChanged) cambios.push('contraseña');
+
+    notificar.exito(
+      'Perfil actualizado',
+      cambios.length
+        ? `Cambios guardados: ${cambios.join(', ')}.`
+        : 'Tus datos quedaron guardados.'
+    );
 
     setCurrentPassword('');
     setNewPassword('');

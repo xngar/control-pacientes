@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
+import { notificar } from '@/lib/notifications';
 import { usePacientes, type UsePacientesResult } from '@/lib/hooks/usePacientes';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -112,13 +113,23 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     }
 
     setIsDeleting(true);
-    const { success, error } = await pacienteService.remove(patientToDelete.id);
+
+    let success = false;
+    let error: string | undefined;
+    try {
+      ({ success, error } = await pacienteService.remove(patientToDelete.id));
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'No fue posible eliminar la ficha.';
+    }
     setIsDeleting(false);
 
     if (!success) {
       setDeleteError(error || 'No fue posible eliminar la ficha.');
+      notificar.fallo('No se pudo eliminar la ficha', error);
       return;
     }
+
+    notificar.exito('Ficha eliminada', `Se eliminó el registro de ${patientToDelete.nombre}.`);
 
     // Se cierra la ficha antes de refrescar para no dejar el modal apuntando a
     // un registro que ya no existe.
@@ -128,7 +139,15 @@ export const PatientTable: React.FC<PatientTableProps> = ({
   };
 
   const handleExport = () => {
-    if (filtered.length === 0) return;
+    // El boton esta deshabilitado cuando no hay filas, asi que esta guarda solo
+    // cubre el caso en que la lista se vacie entre el render y el clic.
+    if (filtered.length === 0) {
+      notificar.aviso(
+        'No hay nada que exportar',
+        'Ajusta los filtros o agrega pacientes antes de generar el archivo.'
+      );
+      return;
+    }
 
     const headers = [
       'N°',
@@ -175,6 +194,11 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     link.download = `pacientes-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+
+    notificar.exito(
+      'Archivo generado',
+      `Se exportaron ${filtered.length} ${filtered.length === 1 ? 'paciente' : 'pacientes'} a CSV.`
+    );
   };
 
   const hasFilters = searchQuery.trim() !== '' || estadoFilter !== 'Todos' || duplaFilter !== 'Todas';
@@ -203,6 +227,11 @@ export const PatientTable: React.FC<PatientTableProps> = ({
               size="sm"
               onClick={handleExport}
               disabled={filtered.length === 0}
+              title={
+                filtered.length === 0
+                  ? 'No hay registros que coincidan con los filtros actuales'
+                  : `Exportar ${filtered.length} registros a CSV`
+              }
               leftIcon={<Download className="w-3.5 h-3.5" />}
             >
               Exportar
