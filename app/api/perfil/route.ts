@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAnonClient, getServiceRoleClient } from '@/lib/supabase/server';
+import {
+  getAnonClient,
+  getServiceRoleClient,
+  isMissingServerConfig,
+  MISSING_SERVER_CONFIG_MESSAGE,
+} from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +34,10 @@ type Guard =
   | { ok: true; authId: string }
   | { ok: false; response: NextResponse };
 
-async function requireSelf(request: NextRequest): Promise<Guard> {
+async function requireSelf(
+  request: NextRequest,
+  supabase: ReturnType<typeof getServiceRoleClient>
+): Promise<Guard> {
   const header = request.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
@@ -40,7 +48,6 @@ async function requireSelf(request: NextRequest): Promise<Guard> {
     };
   }
 
-  const supabase = getServiceRoleClient();
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
@@ -54,7 +61,17 @@ async function requireSelf(request: NextRequest): Promise<Guard> {
 }
 
 export async function PATCH(request: NextRequest) {
-  const guard = await requireSelf(request);
+  let supabase: ReturnType<typeof getServiceRoleClient>;
+  try {
+    supabase = getServiceRoleClient();
+  } catch (error) {
+    if (isMissingServerConfig(error)) {
+      return NextResponse.json({ error: MISSING_SERVER_CONFIG_MESSAGE }, { status: 500 });
+    }
+    throw error;
+  }
+
+  const guard = await requireSelf(request, supabase);
   if (!guard.ok) return guard.response;
 
   let body: UpdateBody;
@@ -75,8 +92,6 @@ export async function PATCH(request: NextRequest) {
   if (!EMAIL_PATTERN.test(email)) {
     return NextResponse.json({ error: 'El correo electrónico no es válido.' }, { status: 400 });
   }
-
-  const supabase = getServiceRoleClient();
 
   const { data: current, error: readError } = await supabase
     .from('usuarios_clinicos')

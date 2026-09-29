@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client';
+import { callAuthenticatedApi } from '@/services/apiClient';
 import { UserProfile } from '@/types/auth';
 
 export interface ActualizarPerfilPayload {
@@ -39,35 +39,22 @@ const toProfile = (row: ClinicalUserRow): UserProfile => ({
   activo: row.activo,
 });
 
+interface PerfilResponse {
+  data: ClinicalUserRow;
+  emailChanged?: boolean;
+}
+
 export const perfilService = {
   async update(payload: ActualizarPerfilPayload): Promise<ResultadoPerfil> {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const { data, error } = await callAuthenticatedApi<PerfilResponse, ActualizarPerfilPayload>(
+      '/api/perfil',
+      'PATCH',
+      payload
+    );
 
-    if (!token) {
-      return { error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-    }
+    if (error) return { error };
+    if (!data?.data) return { error: 'La respuesta del servidor no incluyó el perfil actualizado.' };
 
-    try {
-      const response = await fetch('/api/perfil', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        return { error: result?.error || 'No fue posible guardar tu perfil.' };
-      }
-
-      if (!result?.data) {
-        return { error: 'La respuesta del servidor no incluyó el perfil actualizado.' };
-      }
-
-      return { profile: toProfile(result.data), emailChanged: Boolean(result.emailChanged) };
-    } catch {
-      return { error: 'No pudimos comunicarnos con el servidor. Inténtalo nuevamente.' };
-    }
+    return { profile: toProfile(data.data), emailChanged: Boolean(data.emailChanged) };
   },
 };

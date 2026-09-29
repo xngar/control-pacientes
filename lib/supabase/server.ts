@@ -22,6 +22,19 @@ export function getServiceRoleClient(): SupabaseClient {
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 /**
+ * El login y las lecturas funcionan sin service_role, asi que cuando esta
+ * variable falta en el despliegue solo fallan las escrituras. Sin esto el
+ * error real se pierde dentro de un 500 generico.
+ */
+export function isMissingServerConfig(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('Faltan NEXT_PUBLIC_SUPABASE_URL');
+}
+
+export const MISSING_SERVER_CONFIG_MESSAGE =
+  'El servidor no tiene configurada la credencial SUPABASE_SERVICE_ROLE_KEY. ' +
+  'Sin ella no se pueden guardar usuarios ni perfiles. Revisa las variables de entorno del despliegue.';
+
+/**
  * Cliente con la clave anonima, usado unicamente para comprobar una contraseña
  * mediante signInWithPassword. El cliente de service_role no sirve para eso:
  * sus peticiones se autentican como el propio rol de servicio.

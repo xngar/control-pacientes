@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { getServiceRoleClient } from '@/lib/supabase/server';
+import {
+  getServiceRoleClient,
+  isMissingServerConfig,
+  MISSING_SERVER_CONFIG_MESSAGE,
+} from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +33,24 @@ interface UpdateBody {
 type Guard =
   | { ok: true; adminId: string }
   | { ok: false; response: NextResponse };
+
+/**
+ * Si al despliegue le falta SUPABASE_SERVICE_ROLE_KEY, login y lecturas siguen
+ * funcionando y solo se rompen las escrituras. Sin esta traduccion el fallo
+ * aparece como un 500 vacio imposible de diagnosticar desde la interfaz.
+ */
+function serviceRoleOrError(): { client: SupabaseClient } | { response: NextResponse } {
+  try {
+    return { client: getServiceRoleClient() };
+  } catch (error) {
+    if (isMissingServerConfig(error)) {
+      return {
+        response: NextResponse.json({ error: MISSING_SERVER_CONFIG_MESSAGE }, { status: 500 }),
+      };
+    }
+    throw error;
+  }
+}
 
 /** Valida que quien llama tenga una sesión activa con rol ADMIN. */
 async function requireAdmin(request: NextRequest): Promise<Guard> {
@@ -88,6 +110,9 @@ async function findAuthUserByEmail(
 }
 
 export async function POST(request: NextRequest) {
+  const serviceRole = serviceRoleOrError();
+  if ('response' in serviceRole) return serviceRole.response;
+
   const guard = await requireAdmin(request);
   if (!guard.ok) return guard.response;
 
@@ -188,6 +213,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const serviceRole = serviceRoleOrError();
+  if ('response' in serviceRole) return serviceRole.response;
+
   const guard = await requireAdmin(request);
   if (!guard.ok) return guard.response;
 

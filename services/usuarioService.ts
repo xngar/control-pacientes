@@ -1,3 +1,4 @@
+import { callAuthenticatedApi } from '@/services/apiClient';
 import { supabase } from '@/lib/supabase/client';
 import { UserProfile, UserRole } from '@/types/auth';
 
@@ -45,39 +46,20 @@ const toUsuario = (row: ClinicalUserRow): UsuarioGestionado => ({
   createdAt: row.created_at,
 });
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+interface UsuarioResponse {
+  data: ClinicalUserRow;
 }
 
 async function callAdminApi<T extends object>(
   method: 'POST' | 'PATCH',
   body: T
 ): Promise<Resultado<UsuarioGestionado>> {
-  const headers = await authHeaders();
+  const { data, error } = await callAuthenticatedApi<UsuarioResponse, T>('/api/admin/usuarios', method, body);
 
-  if (!headers.Authorization) {
-    return { error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
-  }
+  if (error) return { error };
+  if (!data?.data) return { error: 'La respuesta del servidor no incluyó el usuario.' };
 
-  try {
-    const response = await fetch('/api/admin/usuarios', {
-      method,
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(body),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return { error: payload?.error || 'No fue posible completar la operación.' };
-    }
-
-    return { data: toUsuario(payload.data) };
-  } catch {
-    return { error: 'No pudimos comunicarnos con el servidor. Inténtalo nuevamente.' };
-  }
+  return { data: toUsuario(data.data) };
 }
 
 export const usuarioService = {
