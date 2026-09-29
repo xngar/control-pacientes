@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { IconButton } from '@/components/ui/IconButton';
 import { Modal } from '@/components/ui/Modal';
 import { CardFooter } from '@/components/ui/Card';
-import { AlertCircle, CheckCircle2, KeyRound, Save, ShieldCheck, Stethoscope, UserCircle2, X, Mail } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Hash, KeyRound, Save, ShieldCheck, Stethoscope, UserCircle2, X, Mail } from 'lucide-react';
+import { esRutValido, formatearRut, normalizarRut } from '@/lib/utils/rut';
 
 interface PerfilModalProps {
   onClose: () => void;
@@ -17,6 +18,7 @@ interface PerfilModalProps {
 type Feedback = { ok: boolean; message: string } | null;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
   const { user, updateProfile } = useAuth();
@@ -24,14 +26,22 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
   const [email, setEmail] = useState(user?.email ?? '');
   const [especialidad, setEspecialidad] = useState(user?.especialidad ?? '');
   const [cargo, setCargo] = useState(user?.cargo ?? '');
+  const [rut, setRut] = useState(user?.rut ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
   if (!user) return null;
 
   const emailChanges = email.trim().toLowerCase() !== user.email.toLowerCase();
+  const rutChanges = normalizarRut(rut) !== normalizarRut(user.rut);
+  // El RUT ya guardado puede traer un digito verificador erroneo de origen: solo
+  // se marca como error si el usuario esta escribiendo uno nuevo.
+  const rutInvalido = rutChanges && Boolean(normalizarRut(rut)) && !esRutValido(rut);
+  const passwordChanges = newPassword.length > 0;
   const isAdmin = user.rol === 'ADMIN';
+  const pideConfirmacion = emailChanges || passwordChanges;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,22 +57,47 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
       return;
     }
 
-    if (emailChanges && !currentPassword) {
+    if (rutChanges && !normalizarRut(rut)) {
+      setFeedback({ ok: false, message: 'El RUT es obligatorio.' });
+      return;
+    }
+
+    if (rutInvalido) {
       setFeedback({
         ok: false,
-        message: 'Confirma tu contraseña actual para cambiar el correo de acceso.',
+        message: 'El RUT no es válido. Revisa el número y su dígito verificador.',
+      });
+      return;
+    }
+
+    if (passwordChanges && newPassword.length < MIN_PASSWORD_LENGTH) {
+      setFeedback({
+        ok: false,
+        message: `La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
+      });
+      return;
+    }
+
+    if (pideConfirmacion && !currentPassword) {
+      setFeedback({
+        ok: false,
+        message: emailChanges
+          ? 'Confirma tu contraseña actual para cambiar el correo de acceso.'
+          : 'Confirma tu contraseña actual para elegir una nueva.',
       });
       return;
     }
 
     setIsSaving(true);
 
-    const { success, emailChanged, error } = await updateProfile({
+    const { success, emailChanged, passwordChanged, error } = await updateProfile({
       nombreCompleto: nombreCompleto.trim(),
       email: email.trim(),
       especialidad: especialidad.trim(),
       cargo: cargo.trim(),
-      currentPassword: emailChanges ? currentPassword : undefined,
+      rut: formatearRut(rut),
+      currentPassword: pideConfirmacion ? currentPassword : undefined,
+      newPassword: passwordChanges ? newPassword : undefined,
     });
 
     setIsSaving(false);
@@ -73,11 +108,14 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
     }
 
     setCurrentPassword('');
+    setNewPassword('');
     setFeedback({
       ok: true,
-      message: emailChanged
-        ? `Perfil actualizado. Desde ahora ingresas con ${email.trim()}.`
-        : 'Perfil actualizado.',
+      message: passwordChanged
+        ? 'Perfil y contraseña actualizados. Ya puedes ingresar con la nueva.'
+        : emailChanged
+          ? `Perfil actualizado. Desde ahora ingresas con ${email.trim()}.`
+          : 'Perfil actualizado.',
     });
 
     setTimeout(() => {
@@ -130,10 +168,9 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
             <Badge variant={isAdmin ? 'admin' : 'pro'}>
               {isAdmin ? 'ADMIN' : 'PROFESIONAL'}
             </Badge>
-            <span className="text-[13px] text-text-muted">RUT {user.rut}</span>
             <span className="text-[13px] text-text-muted ml-auto flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-              Rol y RUT los gestiona un Administrador
+              Tu rol lo gestiona un Administrador
             </span>
           </div>
 
@@ -162,7 +199,23 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
               }
             />
 
-            {emailChanges && (
+            <Input
+              label="RUT"
+              value={rut}
+              onChange={(e) => setRut(formatearRut(e.target.value))}
+              placeholder="12.345.678-5"
+              leftIcon={<Hash className="w-4 h-4" />}
+              inputMode="numeric"
+              required
+              error={rutInvalido ? 'Revisa el número y su dígito verificador.' : undefined}
+              hint={
+                esRutValido(rut)
+                  ? 'Te identifica en las fichas clínicas. No puede repetirse entre profesionales.'
+                  : 'Te identifica en las fichas clínicas.'
+              }
+            />
+
+            {pideConfirmacion && (
               <div className="animate-fade-in">
                 <Input
                   label="Contraseña actual"
@@ -173,6 +226,7 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
                   leftIcon={<KeyRound className="w-4 h-4" />}
                   autoComplete="current-password"
                   required
+                  hint="La pedimos para confirmar que eres tú, no alguien con tu sesión abierta."
                 />
               </div>
             )}
@@ -190,6 +244,28 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
                 value={cargo}
                 onChange={(e) => setCargo(e.target.value)}
                 placeholder="Coordinadora Clínica"
+              />
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-border">
+              <p className="text-[13px] font-semibold text-text">Cambiar contraseña</p>
+              <p className="text-[13px] text-text-muted">
+                Déjalo vacío si quieres mantener la que usas para ingresar.
+              </p>
+
+              <Input
+                label="Nueva contraseña"
+                isPassword
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
+                leftIcon={<KeyRound className="w-4 h-4" />}
+                autoComplete="new-password"
+                hint={
+                  newPassword && newPassword.length < MIN_PASSWORD_LENGTH
+                    ? `Le faltan ${MIN_PASSWORD_LENGTH - newPassword.length} caracteres.`
+                    : undefined
+                }
               />
             </div>
           </div>

@@ -6,12 +6,15 @@ export interface ActualizarPerfilPayload {
   email: string;
   especialidad?: string;
   cargo?: string;
+  rut?: string;
   currentPassword?: string;
+  newPassword?: string;
 }
 
 export interface ResultadoPerfil {
   profile?: UserProfile;
   emailChanged?: boolean;
+  passwordChanged?: boolean;
   error?: string;
 }
 
@@ -42,6 +45,7 @@ const toProfile = (row: ClinicalUserRow): UserProfile => ({
 interface PerfilResponse {
   data: ClinicalUserRow;
   emailChanged?: boolean;
+  passwordChanged?: boolean;
 }
 
 export const perfilService = {
@@ -55,6 +59,10 @@ export const perfilService = {
     if (error) return { error };
     if (!data?.data) return { error: 'La respuesta del servidor no incluyó el perfil actualizado.' };
 
-    return { profile: toProfile(data.data), emailChanged: Boolean(data.emailChanged) };
+    return {
+      profile: toProfile(data.data),
+      emailChanged: Boolean(data.emailChanged),
+      passwordChanged: Boolean(data.passwordChanged),
+    };
   },
 };

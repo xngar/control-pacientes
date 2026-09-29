@@ -5,17 +5,21 @@ import {
   isMissingServerConfig,
   MISSING_SERVER_CONFIG_MESSAGE,
 } from '@/lib/supabase/server';
+import { esRutValido, formatearRut, normalizarRut } from '@/lib/utils/rut';
 
 export const runtime = 'nodejs';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 interface UpdateBody {
   nombreCompleto?: string;
   email?: string;
   especialidad?: string;
   cargo?: string;
+  rut?: string;
   currentPassword?: string;
+  newPassword?: string;
 }
 
 interface ProfileRow {
@@ -85,6 +89,7 @@ export async function PATCH(request: NextRequest) {
   const email = (body.email ?? '').trim().toLowerCase();
   const especialidad = (body.especialidad ?? '').trim() || null;
   const cargo = (body.cargo ?? '').trim() || null;
+  const rutSolicitado = formatearRut(body.rut ?? '');
 
   if (!nombreCompleto) {
     return NextResponse.json({ error: 'El nombre completo es obligatorio.' }, { status: 400 });
@@ -112,12 +117,72 @@ export async function PATCH(request: NextRequest) {
   const profile = current as ProfileRow;
   const previousEmail = profile.email;
   const emailChanges = email !== previousEmail.toLowerCase();
+  // El RUT solo se revalida cuando el usuario lo cambia: varios perfiles ya
+  // guardados en la base arrastran un digito verificador erroneo de origen, y
+  // revalidarlos dejaria al profesional sin poder guardar nada en su perfil.
+  const rutChanges = normalizarRut(rutSolicitado) !== normalizarRut(formatearRut(profile.rut));
 
-  if (emailChanges) {
+  if (rutChanges) {
+    if (!normalizarRut(rutSolicitado)) {
+      return NextResponse.json({ error: 'El RUT es obligatorio.' }, { status: 400 });
+    }
+    if (!esRutValido(rutSolicitado)) {
+      return NextResponse.json(
+        { error: 'El RUT no es válido. Revisa el número y su dígito verificador.' },
+        { status: 400 }
+      );
+    }
+  }
+
+  // El RUT identifica al profesional en la historia clínica, asi que no puede
+  // quedar repetido: dos profesionales con el mismo RUT fusionarian sus fichas.
+  if (rutChanges) {
+    const { data: taken, error: takenError } = await supabase
+      .from('usuarios_clinicos')
+      .select('id')
+      .eq('rut', rutSolicitado)
+      .neq('id', profile.id)
+      .maybeSingle();
+
+    if (takenError) {
+      return NextResponse.json({ error: takenError.message }, { status: 500 });
+    }
+    if (taken) {
+      return NextResponse.json(
+        { error: 'Ese RUT ya está registrado en otro profesional.' },
+        { status: 409 }
+      );
+    }
+  }
+
+  const newPassword = body.newPassword ?? '';
+  const passwordChanges = newPassword.length > 0;
+
+  if (passwordChanges && newPassword.length < MIN_PASSWORD_LENGTH) {
+    return NextResponse.json(
+      { error: `La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.` },
+      { status: 400 }
+    );
+  }
+
+  if (passwordChanges && newPassword === body.currentPassword) {
+    return NextResponse.json(
+      { error: 'La nueva contraseña debe ser distinta de la actual.' },
+      { status: 400 }
+    );
+  }
+
+  // Cualquier cambio sensible (correo o contraseña) exige probar la contraseña
+  // actual: sin ese paso un token robado basta para reescribir la identidad.
+  if (emailChanges || passwordChanges) {
     const password = body.currentPassword ?? '';
     if (!password) {
       return NextResponse.json(
-        { error: 'Para cambiar tu correo debes confirmar tu contraseña actual.' },
+        {
+          error: emailChanges
+            ? 'Para cambiar tu correo debes confirmar tu contraseña actual.'
+            : 'Para cambiar tu contraseña debes confirmar la actual.',
+        },
         { status: 400 }
       );
     }
@@ -135,13 +200,13 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // El correo vive en dos sitios: en auth.users (identidad de login) y en
-  // usuarios_clinicos (directorio). Se actualiza primero la identidad y, si la
-  // tabla falla, se revierte para no dejar un correo desincronizado.
-  if (emailChanges) {
+  // El correo y la contraseña viven en auth.users, no en usuarios_clinicos. Se
+  // actualiza la identidad primero y, si la tabla falla, se revierte para no
+  // dejar el login desincronizado del directorio clínico.
+  if (emailChanges || passwordChanges) {
     const { error: authError } = await supabase.auth.admin.updateUserById(guard.authId, {
-      email,
-      email_confirm: true,
+      ...(emailChanges ? { email, email_confirm: true } : {}),
+      ...(passwordChanges ? { password: newPassword } : {}),
     });
 
     if (authError) {
@@ -150,7 +215,9 @@ export async function PATCH(request: NextRequest) {
         {
           error: taken
             ? 'Ese correo ya está en uso por otra cuenta.'
-            : 'No fue posible actualizar tu correo de acceso.',
+            : emailChanges
+              ? 'No fue posible actualizar tu correo de acceso.'
+              : 'No fue posible actualizar tu contraseña.',
         },
         { status: taken ? 409 : 502 }
       );
@@ -165,6 +232,12 @@ export async function PATCH(request: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
+  // Solo se escribe el RUT si cambio, para no reformatear en cada guardado los
+  // perfiles antiguos que guardan el numero sin puntos ni guion.
+  if (rutChanges) {
+    updates.rut = rutSolicitado;
+  }
+
   const { data, error } = await supabase
     .from('usuarios_clinicos')
     .update(updates)
@@ -173,6 +246,8 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (error) {
+    // La escritura del directorio fallo, pero la identidad ya cambio. Sin esta
+    // reversa el usuario entraria con una clave que el directorio no conoce.
     if (emailChanges) {
       const { error: rollbackError } = await supabase.auth.admin.updateUserById(guard.authId, {
         email: previousEmail,
@@ -185,5 +260,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data, emailChanged: emailChanges });
+  return NextResponse.json({
+    data,
+    emailChanged: emailChanges,
+    passwordChanged: passwordChanges,
+  });
 }

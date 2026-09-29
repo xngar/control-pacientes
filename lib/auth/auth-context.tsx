@@ -15,7 +15,12 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (
     payload: ActualizarPerfilPayload
-  ) => Promise<{ success: boolean; emailChanged?: boolean; error?: string }>;
+  ) => Promise<{
+    success: boolean;
+    emailChanged?: boolean;
+    passwordChanged?: boolean;
+    error?: string;
+  }>;
 }
 
 type ProfileResult =
@@ -193,15 +198,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = useCallback(
     async (
       payload: ActualizarPerfilPayload
-    ): Promise<{ success: boolean; emailChanged?: boolean; error?: string }> => {
-      const { profile, emailChanged, error } = await perfilService.update(payload);
+    ): Promise<{
+      success: boolean;
+      emailChanged?: boolean;
+      passwordChanged?: boolean;
+      error?: string;
+    }> => {
+      const { profile, emailChanged, passwordChanged, error } = await perfilService.update(payload);
 
       if (error || !profile) {
         return { success: false, error: error || 'No fue posible guardar tu perfil.' };
       }
 
       setUser(profile);
-      return { success: true, emailChanged };
+      return { success: true, emailChanged, passwordChanged };
     },
     []
   );
