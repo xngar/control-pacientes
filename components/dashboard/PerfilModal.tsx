@@ -106,7 +106,7 @@ export const PerfilModal: React.FC<PerfilModalProps> = ({ onClose }) => {
         </IconButton>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1" noValidate>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {feedback && (
             <div
