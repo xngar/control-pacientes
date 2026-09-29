@@ -14,30 +14,30 @@ export const Badge: React.FC<BadgeProps> = ({
   dot = false,
 }) => {
   const variantStyles = {
-    default: 'bg-zinc-100 text-text border-border',
-    admin: 'bg-accent/15 text-accent border-accent/30 font-semibold',
-    pro: 'bg-primary/15 text-primary border-primary/30 font-semibold',
-    success: 'bg-success/15 text-emerald-800 border-success/30 font-medium',
-    warning: 'bg-warning/15 text-amber-800 border-warning/30 font-medium',
-    error: 'bg-error/15 text-rose-800 border-error/30 font-medium',
-    info: 'bg-info/15 text-blue-800 border-info/30 font-medium',
+    default: 'bg-surface-muted text-text-muted border-border',
+    admin: 'bg-accent/10 text-accent-text border-accent/30 font-semibold',
+    pro: 'bg-primary/10 text-primary-text border-primary/30 font-semibold',
+    success: 'bg-success/15 text-success-text border-success/30 font-medium',
+    warning: 'bg-warning/15 text-warning-text border-warning/30 font-medium',
+    error: 'bg-error/10 text-error-text border-error/30 font-medium',
+    info: 'bg-info/10 text-info-text border-info/30 font-medium',
   };
 
   const dotStyles = {
     default: 'bg-text-muted',
-    admin: 'bg-accent',
+    admin: 'bg-accent-strong',
     pro: 'bg-primary',
-    success: 'bg-success',
-    warning: 'bg-warning',
-    error: 'bg-error',
-    info: 'bg-info',
+    success: 'bg-success-strong',
+    warning: 'bg-warning-strong',
+    error: 'bg-error-strong',
+    info: 'bg-info-strong',
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[var(--radius-xs)] text-xs border tracking-wide ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[var(--radius-xs)] text-xs border ${variantStyles[variant]} ${className}`}
     >
-      {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[variant]}`} />}
+      {dot && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotStyles[variant]}`} aria-hidden="true" />}
       {children}
     </span>
   );

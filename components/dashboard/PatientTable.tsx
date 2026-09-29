@@ -1,533 +1,505 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
-import { Badge } from '@/components/ui/Badge';
+import { usePacientes, type UsePacientesResult } from '@/lib/hooks/usePacientes';
 import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
+import { Badge } from '@/components/ui/Badge';
 import { PatientDetailModal } from './PatientDetailModal';
 import { PatientFormModal } from './PatientFormModal';
-import { exportPacientesToExcel } from '@/lib/export/exportExcel';
 import {
-  Search,
-  RotateCcw,
+  Pencil,
   Eye,
-  Edit3,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Loader2,
+  UserPlus,
+  Download,
+  AlertCircle,
+  Search,
+  Inbox,
+  ChevronDown,
   RefreshCw,
-  FileDown,
+  UserCheck,
 } from 'lucide-react';
 
 interface PatientTableProps {
-  searchQuery?: string;
+  pacientes: UsePacientesResult;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
 }
 
-export const PatientTable: React.FC<PatientTableProps> = ({ searchQuery = '' }) => {
-  const [data, setData] = useState<RegistroPaciente[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
-  const [localSearch, setLocalSearch] = useState('');
-  const [selectedEstado, setSelectedEstado] = useState<string>('TODOS');
-  const [selectedDupla, setSelectedDupla] = useState<string>('TODAS');
+const ESTADOS = ['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado'];
 
-  // Modals
+const getEstadoVariant = (estado: string) => {
+  if (estado === 'Activo') return 'success' as const;
+  if (estado === 'Egresado') return 'default' as const;
+  if (estado === 'Derivado') return 'warning' as const;
+  return 'info' as const;
+};
+
+const SíNo = ({ value }: { value: string }) => {
+  const esSi = value === 'Sí';
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-5 h-5 rounded-[var(--radius-full)] text-[11px] font-bold ${
+        esSi ? 'bg-success/15 text-success-text' : 'bg-surface-muted text-text-muted'
+      }`}
+      title={esSi ? 'Sí' : 'No'}
+    >
+      {esSi ? '✓' : '—'}
+    </span>
+  );
+};
+
+export const PatientTable: React.FC<PatientTableProps> = ({
+  pacientes,
+  searchQuery,
+  onSearchChange,
+}) => {
+  const [estadoFilter, setEstadoFilter] = useState('Todos');
+  const [duplaFilter, setDuplaFilter] = useState('Todas');
   const [selectedPatient, setSelectedPatient] = useState<RegistroPaciente | null>(null);
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [patientToEdit, setPatientToEdit] = useState<RegistroPaciente | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
-  const fetchPacientes = async () => {
-    setIsLoading(true);
-    const res = await pacienteService.getAll();
-    setData(res);
-    setIsLoading(false);
-  };
+  const { data, status, sourceNotice, refresh } = pacientes;
 
-  useEffect(() => {
-    fetchPacientes();
-  }, []);
+  const duplas = useMemo(
+    () => Array.from(new Set(data.map((p) => p.duplaACargo).filter(Boolean))).sort(),
+    [data],
+  );
 
-  const effectiveSearch = searchQuery || localSearch;
-
-  // Filter logic
-  const filteredData = useMemo(() => {
-    return data.filter((item) => {
-      const matchSearch =
-        effectiveSearch === '' ||
-        item.nombre.toLowerCase().includes(effectiveSearch.toLowerCase()) ||
-        item.rut.toLowerCase().includes(effectiveSearch.toLowerCase()) ||
-        item.duplaACargo.toLowerCase().includes(effectiveSearch.toLowerCase()) ||
-        item.diagnostico.toLowerCase().includes(effectiveSearch.toLowerCase()) ||
-        item.tipologia.toLowerCase().includes(effectiveSearch.toLowerCase());
-
-      const matchEstado =
-        selectedEstado === 'TODOS' || item.estado.toLowerCase() === selectedEstado.toLowerCase();
-
-      const matchDupla =
-        selectedDupla === 'TODAS' || item.duplaACargo.includes(selectedDupla);
-
-      return matchSearch && matchEstado && matchDupla;
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return data.filter((p) => {
+      const matchesEstado = estadoFilter === 'Todos' || p.estado === estadoFilter;
+      const matchesDupla = duplaFilter === 'Todas' || p.duplaACargo === duplaFilter;
+      const matchesQuery =
+        !q ||
+        p.nombre?.toLowerCase().includes(q) ||
+        p.rut?.toLowerCase().includes(q) ||
+        p.diagnostico?.toLowerCase().includes(q) ||
+        p.duplaACargo?.toLowerCase().includes(q);
+      return matchesEstado && matchesDupla && matchesQuery;
     });
-  }, [data, effectiveSearch, selectedEstado, selectedDupla]);
-
-  const resetFilters = () => {
-    setLocalSearch('');
-    setSelectedEstado('TODOS');
-    setSelectedDupla('TODAS');
-  };
-
-  const hasActiveFilters =
-    localSearch !== '' ||
-    searchQuery !== '' ||
-    selectedEstado !== 'TODOS' ||
-    selectedDupla !== 'TODAS';
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      // Export the currently filtered view; if no filters → export all
-      const toExport = hasActiveFilters ? filteredData : data;
-      exportPacientesToExcel(toExport, 'registro_clinico_pacientes');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleOpenCreate = () => {
-    setPatientToEdit(null);
-    setIsFormModalOpen(true);
-  };
-
-  const handleOpenEdit = (paciente: RegistroPaciente) => {
-    setPatientToEdit(paciente);
-    setIsFormModalOpen(true);
-  };
+  }, [data, searchQuery, estadoFilter, duplaFilter]);
 
   const handleSavedPatient = (saved: RegistroPaciente) => {
-    setData((prev) => {
-      const index = prev.findIndex((p) => (p.id && p.id === saved.id) || p.numero === saved.numero);
-      if (index >= 0) {
-        const updated = [...prev];
-        updated[index] = saved;
-        return updated;
-      } else {
-        return [...prev, saved];
-      }
-    });
-    fetchPacientes();
+    if (selectedPatient?.id === saved.id) {
+      setSelectedPatient(saved);
+    }
+    void refresh();
   };
 
+  const handleExport = () => {
+    if (filtered.length === 0) return;
+
+    const headers = [
+      'N°',
+      'Nombre',
+      'RUT',
+      'Estado',
+      'Dupla a Cargo',
+      'Fecha Derivación',
+      'Fecha Egreso',
+      'Fecha Ingreso UEGO',
+      'Edad',
+      'Tipología',
+      'Diagnóstico',
+      'Teléfono',
+      'Total Atenciones',
+    ];
+
+    const rows = filtered.map((p) => [
+      p.numero,
+      p.nombre,
+      p.rut,
+      p.estado,
+      p.duplaACargo,
+      p.fechaDerivacionDupla,
+      p.fechaEgreso,
+      p.fechaIngresoUego,
+      p.edad,
+      p.tipologia,
+      p.diagnostico,
+      p.telefono,
+      p.totalAtenciones,
+    ]);
+
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [
+      headers.map(escape).join(';'),
+      ...rows.map((row) => row.map(escape).join(';')),
+    ].join('\n');
+
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pacientes-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const hasFilters = searchQuery.trim() !== '' || estadoFilter !== 'Todos' || duplaFilter !== 'Todas';
+
   return (
-    <div className="bg-surface rounded-[var(--radius-md)] border border-border shadow-xs overflow-hidden space-y-4">
-      {/* Header Bar & Quick Filters */}
-      <div className="p-4 sm:p-5 border-b border-border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        {/* Active Filter Chips & Add Filter */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Month pill */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-full)] bg-zinc-100 text-xs font-medium text-text border border-border">
-            <span>Mes: Marzo 2026</span>
+    <section
+      id="pacientes"
+      aria-labelledby="pacientes-heading"
+      className="bg-surface border border-border rounded-[var(--radius-lg)]"
+    >
+      <div className="p-4 border-b border-border flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="pacientes-heading" className="text-base font-bold text-text">
+              Registro de pacientes
+            </h2>
+            <p className="text-[13px] text-text-muted mt-0.5">
+              <span className="font-semibold text-text tnum">{filtered.length}</span> de{' '}
+              <span className="tnum">{data.length}</span> registros
+            </p>
           </div>
 
-          {/* Estado filter pill */}
-          {selectedEstado !== 'TODOS' ? (
-            <button
-              onClick={() => setSelectedEstado('TODOS')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-full)] bg-primary/10 text-xs font-semibold text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={filtered.length === 0}
+              leftIcon={<Download className="w-3.5 h-3.5" />}
             >
-              <span>Estado: {selectedEstado}</span>
-              <span className="font-bold">×</span>
-            </button>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-full)] bg-zinc-100 text-xs font-medium text-text border border-border">
-              <span>Todos los Estados</span>
-            </div>
-          )}
-
-          {/* Dupla Selector */}
-          <select
-            value={selectedDupla}
-            onChange={(e) => setSelectedDupla(e.target.value)}
-            className="px-3 py-1.5 rounded-[var(--radius-full)] bg-zinc-100 text-xs font-medium text-text border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="TODAS">Todas las Duplas</option>
-            <option value="Dupla 1">Dupla 1 (Ps. Tomás / T.O. Camila)</option>
-            <option value="Dupla 2">Dupla 2 (Ps. Andrea / T.S. Marco)</option>
-            <option value="Dupla 3">Dupla 3 (Ps. Diego / T.O. Carla)</option>
-          </select>
-
-          {/* Quick Estado dropdown */}
-          <select
-            value={selectedEstado}
-            onChange={(e) => setSelectedEstado(e.target.value)}
-            className="px-3 py-1.5 rounded-[var(--radius-full)] bg-zinc-100 text-xs font-medium text-text border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="TODOS">Estado (Todos)</option>
-            <option value="Activo">Activo</option>
-            <option value="En Seguimiento">En Seguimiento</option>
-            <option value="En Espera">En Espera</option>
-            <option value="Egresado">Egresado</option>
-          </select>
+              Exportar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setPatientToEdit(null);
+                setIsFormModalOpen(true);
+              }}
+              leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+            >
+              Nuevo paciente
+            </Button>
+          </div>
         </div>
 
-        {/* Search, Reset & Actions */}
-        <div className="flex items-center gap-2.5 w-full lg:w-auto justify-between lg:justify-end flex-wrap">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 text-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
+            <label htmlFor="pacientes-busqueda" className="sr-only">
+              Filtrar pacientes
+            </label>
+            <Search
+              className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
             <input
-              type="text"
-              placeholder="Buscar en tabla..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="w-full bg-zinc-50 focus:bg-white text-xs pl-8 pr-3 py-1.5 rounded-[var(--radius-sm)] border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+              id="pacientes-busqueda"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Filtrar por nombre, RUT, diagnóstico o dupla..."
+              className="w-full bg-surface border border-border rounded-[var(--radius-sm)] pl-9 pr-3 py-2.5 text-sm text-text placeholder:text-text-muted focus:border-primary transition-colors"
             />
           </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative sm:w-52">
+              <label htmlFor="filtro-estado" className="sr-only">
+                Filtrar por estado
+              </label>
+              <select
+                id="filtro-estado"
+                value={estadoFilter}
+                onChange={(e) => setEstadoFilter(e.target.value)}
+                className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
+              >
+                <option value="Todos">Todos los estados</option>
+                {ESTADOS.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+            </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchPacientes}
-            className="text-xs text-text-muted hover:text-text"
-            title="Recargar datos de Supabase"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={resetFilters}
-            className="text-xs text-text-muted hover:text-text"
-            leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-          >
-            Restablecer
-          </Button>
-
-          {/* Export to Excel Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            isLoading={isExporting}
-            disabled={isExporting || data.length === 0}
-            leftIcon={!isExporting ? <FileDown className="w-3.5 h-3.5" /> : undefined}
-            title={hasActiveFilters
-              ? `Exportar ${filteredData.length} registros filtrados a Excel`
-              : `Exportar todos los ${data.length} registros a Excel`}
-            className="text-xs border-primary/40 text-primary hover:bg-primary hover:text-white transition-all"
-          >
-            {hasActiveFilters
-              ? `Excel (${filteredData.length})`
-              : 'Exportar Excel'}
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleOpenCreate}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-          >
-            Nuevo Paciente
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Clinical Table with Horizontal Scroll */}
-      <div className="overflow-x-auto relative min-h-[250px]">
-        {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-7 h-7 text-primary animate-spin" />
-            <p className="text-xs text-text-muted">Cargando pacientes desde Supabase...</p>
+            <div className="relative sm:w-52">
+              <label htmlFor="filtro-dupla" className="sr-only">
+                Filtrar por dupla
+              </label>
+              <select
+                id="filtro-dupla"
+                value={duplaFilter}
+                onChange={(e) => setDuplaFilter(e.target.value)}
+                className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
+              >
+                <option value="Todas">Todas las duplas</option>
+                {duplas.map((dupla) => (
+                  <option key={dupla} value={dupla}>
+                    {dupla}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+            </div>
           </div>
-        ) : (
-          <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
-            <thead>
-              <tr className="bg-zinc-50/80 border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
-                {/* Frozen Left Columns */}
-                <th className="py-3 px-4 sticky left-0 bg-zinc-50 z-20 shadow-xs">Acciones</th>
-                <th className="py-3 px-3 sticky left-20 bg-zinc-50 z-20">N°</th>
-                <th className="py-3 px-4 sticky left-32 bg-zinc-50 z-20 border-r border-border">Nombre Paciente</th>
-                
-                {/* Remaining 33 Fields */}
-                <th className="py-3 px-4">RUT</th>
-                <th className="py-3 px-4">Estado</th>
-                <th className="py-3 px-5">Dupla a Cargo</th>
-                <th className="py-3 px-4">Fecha Derivación</th>
-                <th className="py-3 px-4">Fecha Egreso</th>
-                <th className="py-3 px-4">Fecha Máx. Contacto</th>
-                <th className="py-3 px-4">Fecha Ingreso UEGO</th>
-                <th className="py-3 px-6 min-w-[200px]">Observaciones Ingreso</th>
-                <th className="py-3 px-3">Edad</th>
-                <th className="py-3 px-3">EG</th>
-                <th className="py-3 px-4">Tipología</th>
-                <th className="py-3 px-6 min-w-[220px]">Diagnóstico</th>
-                <th className="py-3 px-6 min-w-[200px]">Obs. Diagnóstico</th>
-                <th className="py-3 px-4">Ingreso Fin Semana / UEGO</th>
-                <th className="py-3 px-4">Teléfono</th>
-                <th className="py-3 px-6 min-w-[180px]">Obs. Contacto</th>
-                <th className="py-3 px-3 text-center">Migrante</th>
-                <th className="py-3 px-4 text-center">Pueblo Originario</th>
-                <th className="py-3 px-3 text-center">Entrega Recuerdo</th>
-                <th className="py-3 px-3 text-center">Díptico Inf.</th>
-                <th className="py-3 px-4 text-center">Acomp. Cerrada</th>
-                <th className="py-3 px-4 text-center">Control Ambulatorio</th>
-                <th className="py-3 px-4">Atención 1</th>
-                <th className="py-3 px-4">Atención 2</th>
-                <th className="py-3 px-4">Atención 3</th>
-                <th className="py-3 px-4">Atención 4</th>
-                <th className="py-3 px-4">Atención 5</th>
-                <th className="py-3 px-4">Atención 6</th>
-                <th className="py-3 px-4">Atención 7</th>
-                <th className="py-3 px-4">Atención 8</th>
-                <th className="py-3 px-4">Atención 9</th>
-                <th className="py-3 px-4">Atención 10</th>
-                <th className="py-3 px-4 text-center font-bold">Total Atenciones</th>
-                <th className="py-3 px-6 min-w-[240px]">Obs. Atenciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan={37} className="py-12 text-center text-text-muted text-sm">
-                    No se encontraron pacientes que coincidan con los filtros aplicados.
-                  </td>
-                </tr>
-              ) : (
-                filteredData.map((paciente) => (
-                  <tr
-                    key={paciente.id || paciente.numero}
-                    className="hover:bg-zinc-50/70 transition-colors group cursor-pointer"
-                    onClick={() => setSelectedPatient(paciente)}
-                  >
-                    {/* Action Column */}
-                    <td className="py-3 px-4 sticky left-0 bg-surface group-hover:bg-zinc-50 z-10 shadow-xs flex items-center gap-1.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPatient(paciente);
-                        }}
-                        className="p-1.5 rounded-[var(--radius-xs)] bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors"
-                        title="Ver ficha completa"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEdit(paciente);
-                        }}
-                        className="p-1.5 rounded-[var(--radius-xs)] bg-zinc-100 text-text-muted hover:bg-primary hover:text-white transition-colors"
-                        title="Editar paciente"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+        </div>
 
-                    {/* N° */}
-                    <td className="py-3 px-3 font-semibold text-text-muted sticky left-20 bg-surface group-hover:bg-zinc-50 z-10">
-                      #{paciente.numero}
-                    </td>
-
-                    {/* Nombre */}
-                    <td className="py-3 px-4 font-bold text-text sticky left-32 bg-surface group-hover:bg-zinc-50 z-10 border-r border-border">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-[var(--radius-full)] bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold">
-                          {paciente.nombre.charAt(0)}
-                        </div>
-                        <span className="truncate max-w-[180px]">{paciente.nombre}</span>
-                      </div>
-                    </td>
-
-                    {/* RUT */}
-                    <td className="py-3 px-4 font-mono font-medium text-text">
-                      {paciente.rut}
-                    </td>
-
-                    {/* Estado */}
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant={
-                          paciente.estado === 'Activo'
-                            ? 'success'
-                            : paciente.estado === 'En Seguimiento'
-                            ? 'pro'
-                            : paciente.estado === 'Egresado'
-                            ? 'default'
-                            : 'warning'
-                        }
-                        dot
-                      >
-                        {paciente.estado}
-                      </Badge>
-                    </td>
-
-                    {/* Dupla a Cargo */}
-                    <td className="py-3 px-5 font-medium text-text">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-[var(--radius-full)] bg-primary" />
-                        {paciente.duplaACargo}
-                      </span>
-                    </td>
-
-                    {/* Fechas */}
-                    <td className="py-3 px-4">{paciente.fechaDerivacionDupla || '—'}</td>
-                    <td className="py-3 px-4">{paciente.fechaEgreso || 'En curso'}</td>
-                    <td className="py-3 px-4">{paciente.fechaMaximaContactoInicial || '—'}</td>
-                    <td className="py-3 px-4">{paciente.fechaIngresoUego || '—'}</td>
-
-                    {/* Observaciones Ingreso */}
-                    <td className="py-3 px-6 text-text-muted max-w-[220px] truncate" title={paciente.observacionesIngreso}>
-                      {paciente.observacionesIngreso || '—'}
-                    </td>
-
-                    {/* Edad & EG */}
-                    <td className="py-3 px-3 font-semibold">{paciente.edad}</td>
-                    <td className="py-3 px-3 text-text-muted">{paciente.eg}</td>
-
-                    {/* Tipología */}
-                    <td className="py-3 px-4 font-medium text-text">{paciente.tipologia}</td>
-
-                    {/* Diagnóstico */}
-                    <td className="py-3 px-6 font-semibold text-text max-w-[240px] truncate" title={paciente.diagnostico}>
-                      {paciente.diagnostico}
-                    </td>
-
-                    {/* Obs Diagnóstico */}
-                    <td className="py-3 px-6 text-text-muted max-w-[200px] truncate" title={paciente.observacionesDiagnostico}>
-                      {paciente.observacionesDiagnostico || '—'}
-                    </td>
-
-                    {/* Ingreso Especial */}
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded-[var(--radius-xs)] bg-zinc-100 text-text font-medium">
-                        {paciente.ingresoHorarioEspecial}
-                      </span>
-                    </td>
-
-                    {/* Teléfono */}
-                    <td className="py-3 px-4 font-mono">{paciente.telefono}</td>
-
-                    {/* Obs Contacto */}
-                    <td className="py-3 px-6 text-text-muted max-w-[180px] truncate" title={paciente.observacionesContacto}>
-                      {paciente.observacionesContacto || '—'}
-                    </td>
-
-                    {/* Migrante & Pueblo */}
-                    <td className="py-3 px-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-medium ${paciente.migrante === 'Sí' ? 'bg-warning/20 text-amber-900' : 'text-text-muted'}`}>
-                        {paciente.migrante}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-medium ${paciente.puebloOriginario !== 'No' ? 'bg-info/20 text-blue-900' : 'text-text-muted'}`}>
-                        {paciente.puebloOriginario}
-                      </span>
-                    </td>
-
-                    {/* Entregas */}
-                    <td className="py-3 px-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-semibold ${paciente.entregaRecuerdo === 'Sí' ? 'text-emerald-800 bg-success/20' : 'text-zinc-400'}`}>
-                        {paciente.entregaRecuerdo}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-semibold ${paciente.entregaDiptico === 'Sí' ? 'text-emerald-800 bg-success/20' : 'text-zinc-400'}`}>
-                        {paciente.entregaDiptico}
-                      </span>
-                    </td>
-
-                    {/* Acompañamiento & Control */}
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-semibold ${paciente.acompanamientoAtencionCerrada === 'Sí' ? 'text-primary bg-primary/15' : 'text-zinc-400'}`}>
-                        {paciente.acompanamientoAtencionCerrada}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-[var(--radius-xs)] font-semibold ${paciente.controlAmbulatorioPsicosocial === 'Sí' ? 'text-primary bg-primary/15' : 'text-zinc-400'}`}>
-                        {paciente.controlAmbulatorioPsicosocial}
-                      </span>
-                    </td>
-
-                    {/* Atenciones 1 a 10 */}
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion1 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion2 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion3 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion4 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion5 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion6 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion7 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion8 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion9 || '—'}</td>
-                    <td className="py-3 px-4 text-text-muted">{paciente.atencion10 || '—'}</td>
-
-                    {/* Total Atenciones */}
-                    <td className="py-3 px-4 text-center">
-                      <span className="font-bold text-sm bg-primary/15 text-primary px-2.5 py-0.5 rounded-[var(--radius-full)]">
-                        {paciente.totalAtenciones}
-                      </span>
-                    </td>
-
-                    {/* Obs Atenciones */}
-                    <td className="py-3 px-6 text-text-muted max-w-[260px] truncate" title={paciente.observacionAtenciones}>
-                      {paciente.observacionAtenciones || '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {sourceNotice && status === 'ready' && (
+          <p className="flex items-start gap-2 text-[13px] text-warning-text bg-warning/10 border border-warning/30 rounded-[var(--radius-sm)] px-3 py-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+            {sourceNotice}
+          </p>
         )}
       </div>
 
-      {/* Table Pagination & Row Summary Footer */}
-      <div className="p-4 border-t border-border flex items-center justify-between text-xs text-text-muted flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <span>
-            Mostrando{' '}
-            <span className="font-semibold text-text">{filteredData.length}</span> de{' '}
-            <span className="font-semibold text-text">{data.length}</span> registros clínicos
-          </span>
-          {hasActiveFilters && filteredData.length > 0 && (
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-xs)] bg-primary/10 text-primary font-semibold hover:bg-primary hover:text-white transition-all disabled:opacity-50"
-              title={`Descargar ${filteredData.length} registros filtrados como Excel`}
+      {status === 'loading' ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-2" role="status">
+          <RefreshCw className="w-5 h-5 animate-spin text-primary" aria-hidden="true" />
+          <p className="text-[13px] text-text-muted">Cargando registros clínicos...</p>
+        </div>
+      ) : status === 'error' ? (
+        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+          <AlertCircle className="w-8 h-8 text-error-text mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-text">No pudimos cargar los pacientes</p>
+          <p className="text-[13px] text-text-muted mt-1 max-w-sm">
+            {sourceNotice ||
+              'Ocurrió un problema al consultar el registro clínico. Revisa la conexión e inténtalo de nuevo.'}
+          </p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => void refresh()}>
+            Reintentar
+          </Button>
+        </div>
+      ) : data.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+          <Inbox className="w-8 h-8 text-text-muted mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-text">Aún no hay pacientes registrados</p>
+          <p className="text-[13px] text-text-muted mt-1 max-w-sm">
+            Registra el primer paciente para comenzar el seguimiento clínico.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            className="mt-4"
+            onClick={() => {
+              setPatientToEdit(null);
+              setIsFormModalOpen(true);
+            }}
+            leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+          >
+            Nuevo paciente
+          </Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+          <Search className="w-8 h-8 text-text-muted mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-text">Sin coincidencias</p>
+          <p className="text-[13px] text-text-muted mt-1">
+            Ningún registro cumple los filtros aplicados.
+          </p>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3"
+              onClick={() => {
+                onSearchChange('');
+                setEstadoFilter('Todos');
+                setDuplaFilter('Todas');
+              }}
             >
-              {isExporting
-                ? <Loader2 className="w-3 h-3 animate-spin" />
-                : <FileDown className="w-3 h-3" />}
-              Descargar {filteredData.length} registros
-            </button>
+              Limpiar filtros
+            </Button>
           )}
         </div>
+      ) : (
+        <>
+          <p className="px-4 py-2 text-[13px] text-text-muted border-b border-border bg-surface-muted">
+            Desplaza la tabla en horizontal para ver las 37 columnas
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[3200px]">
+              <caption className="sr-only">
+                Registro clínico de pacientes con estado, dupla a cargo, diagnóstico y atenciones
+              </caption>
+              <thead>
+                <tr className="bg-surface-muted border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
+                  <th scope="col" className="py-3 px-4 sticky left-0 bg-surface-muted z-20">Acciones</th>
+                  <th scope="col" className="py-3 px-3 sticky left-20 bg-surface-muted z-20">N°</th>
+                  <th scope="col" className="py-3 px-4 sticky left-32 bg-surface-muted z-20 border-r border-border">
+                    Nombre paciente
+                  </th>
+                  <th scope="col" className="py-3 px-4">RUT</th>
+                  <th scope="col" className="py-3 px-4">Estado</th>
+                  <th scope="col" className="py-3 px-5">Dupla a cargo</th>
+                  <th scope="col" className="py-3 px-4">Fecha derivación</th>
+                  <th scope="col" className="py-3 px-4">Fecha egreso</th>
+                  <th scope="col" className="py-3 px-4">Fecha máx. contacto</th>
+                  <th scope="col" className="py-3 px-4">Fecha ingreso UEGO</th>
+                  <th scope="col" className="py-3 px-6 min-w-[200px]">Observaciones ingreso</th>
+                  <th scope="col" className="py-3 px-3">Edad</th>
+                  <th scope="col" className="py-3 px-3">EG</th>
+                  <th scope="col" className="py-3 px-4">Tipología</th>
+                  <th scope="col" className="py-3 px-6 min-w-[220px]">Diagnóstico</th>
+                  <th scope="col" className="py-3 px-6 min-w-[200px]">Obs. diagnóstico</th>
+                  <th scope="col" className="py-3 px-4">Ingreso fin semana / UEGO</th>
+                  <th scope="col" className="py-3 px-4">Teléfono</th>
+                  <th scope="col" className="py-3 px-6 min-w-[180px]">Obs. contacto</th>
+                  <th scope="col" className="py-3 px-3 text-center">Migrante</th>
+                  <th scope="col" className="py-3 px-4 text-center">Pueblo originario</th>
+                  <th scope="col" className="py-3 px-3 text-center">Entrega recuerdo</th>
+                  <th scope="col" className="py-3 px-3 text-center">Díptico inf.</th>
+                  <th scope="col" className="py-3 px-4 text-center">Acomp. cerrada</th>
+                  <th scope="col" className="py-3 px-4 text-center">Control ambulatorio</th>
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <th scope="col" key={i} className="py-3 px-4">
+                      Atención {i + 1}
+                    </th>
+                  ))}
+                  <th scope="col" className="py-3 px-4 text-center">Total atenciones</th>
+                  <th scope="col" className="py-3 px-6 min-w-[240px]">Obs. atenciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((paciente) => (
+                  <tr
+                    key={paciente.id}
+                    className="border-b border-border hover:bg-primary/5 transition-colors cursor-pointer"
+                    onClick={() => setSelectedPatient(paciente)}
+                  >
+                    <td className="py-2.5 px-4 sticky left-0 bg-surface z-10">
+                      <div className="flex items-center gap-1">
+                        <IconButton
+                          label={`Ver ficha de ${paciente.nombre}`}
+                          size="sm"
+                          onClick={() => setSelectedPatient(paciente)}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </IconButton>
+                        <IconButton
+                          label={`Editar ficha de ${paciente.nombre}`}
+                          size="sm"
+                          onClick={() => {
+                            setPatientToEdit(paciente);
+                            setIsFormModalOpen(true);
+                          }}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </IconButton>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-text-muted sticky left-20 bg-surface z-10 tnum">
+                      {paciente.numero}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-text sticky left-32 bg-surface z-10 border-r border-border">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-[var(--radius-full)] bg-primary/10 text-primary-text flex items-center justify-center text-[11px] font-bold shrink-0">
+                          {paciente.nombre.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="truncate max-w-[180px]">{paciente.nombre}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-text tnum">{paciente.rut}</td>
+                    <td className="py-2.5 px-4">
+                      <Badge variant={getEstadoVariant(paciente.estado)}>{paciente.estado}</Badge>
+                    </td>
+                    <td className="py-2.5 px-5 font-medium text-text">{paciente.duplaACargo}</td>
+                    <td className="py-2.5 px-4 tnum">{paciente.fechaDerivacionDupla || '—'}</td>
+                    <td className="py-2.5 px-4 tnum">{paciente.fechaEgreso || 'En curso'}</td>
+                    <td className="py-2.5 px-4 tnum">{paciente.fechaMaximaContactoInicial || '—'}</td>
+                    <td className="py-2.5 px-4 tnum">{paciente.fechaIngresoUego || '—'}</td>
+                    <td
+                      className="py-2.5 px-6 text-text-muted max-w-[220px] truncate"
+                      title={paciente.observacionesIngreso}
+                    >
+                      {paciente.observacionesIngreso || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold tnum">{paciente.edad}</td>
+                    <td className="py-2.5 px-3 text-text-muted">{paciente.eg}</td>
+                    <td className="py-2.5 px-4 font-medium text-text">{paciente.tipologia}</td>
+                    <td
+                      className="py-2.5 px-6 font-semibold text-text max-w-[240px] truncate"
+                      title={paciente.diagnostico}
+                    >
+                      {paciente.diagnostico}
+                    </td>
+                    <td
+                      className="py-2.5 px-6 text-text-muted max-w-[200px] truncate"
+                      title={paciente.observacionesDiagnostico}
+                    >
+                      {paciente.observacionesDiagnostico || '—'}
+                    </td>
+                    <td className="py-2.5 px-4">{paciente.ingresoHorarioEspecial}</td>
+                    <td className="py-2.5 px-4 font-mono tnum">{paciente.telefono}</td>
+                    <td
+                      className="py-2.5 px-6 text-text-muted max-w-[180px] truncate"
+                      title={paciente.observacionesContacto}
+                    >
+                      {paciente.observacionesContacto || '—'}
+                    </td>
+                    <td className="py-2.5 px-3 text-center"><SíNo value={paciente.migrante} /></td>
+                    <td className="py-2.5 px-4 text-center text-text-muted">{paciente.puebloOriginario}</td>
+                    <td className="py-2.5 px-3 text-center"><SíNo value={paciente.entregaRecuerdo} /></td>
+                    <td className="py-2.5 px-3 text-center"><SíNo value={paciente.entregaDiptico} /></td>
+                    <td className="py-2.5 px-4 text-center">
+                      <SíNo value={paciente.acompanamientoAtencionCerrada} />
+                    </td>
+                    <td className="py-2.5 px-4 text-center">
+                      <SíNo value={paciente.controlAmbulatorioPsicosocial} />
+                    </td>
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const key = `atencion${i + 1}` as keyof RegistroPaciente;
+                      const value = paciente[key];
+                      return (
+                        <td key={i} className="py-2.5 px-4 text-text-muted tnum">
+                          {(value as string) || '—'}
+                        </td>
+                      );
+                    })}
+                    <td className="py-2.5 px-4 text-center font-bold text-primary-text tnum">
+                      {paciente.totalAtenciones ?? 0}
+                    </td>
+                    <td
+                      className="py-2.5 px-6 text-text-muted max-w-[260px] truncate"
+                      title={paciente.observacionAtenciones}
+                    >
+                      {paciente.observacionAtenciones || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-4 py-3 text-[13px] text-text-muted border-t border-border flex items-center gap-1.5">
+            <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
+            Selecciona una fila para abrir la ficha clínica completa.
+          </p>
+        </>
+      )}
 
-        <div className="flex items-center gap-2">
-          <button className="p-1.5 rounded-[var(--radius-sm)] border border-border text-text-muted hover:bg-zinc-100 disabled:opacity-50" disabled>
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="px-2 font-medium text-text">Página 1 de 1</span>
-          <button className="p-1.5 rounded-[var(--radius-sm)] border border-border text-text-muted hover:bg-zinc-100 disabled:opacity-50" disabled>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Patient Detail Modal */}
       <PatientDetailModal
         paciente={selectedPatient}
         onClose={() => setSelectedPatient(null)}
-        onEdit={handleOpenEdit}
+        onEdit={(p) => {
+          setSelectedPatient(null);
+          setPatientToEdit(p);
+          setIsFormModalOpen(true);
+        }}
       />
 
-      {/* Patient Form Modal (Create / Edit) */}
       <PatientFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         onSaved={handleSavedPatient}
         pacienteToEdit={patientToEdit}
       />
-    </div>
+    </section>
   );
 };

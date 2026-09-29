@@ -1,201 +1,187 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { RegistroPaciente } from '@/types/paciente';
+import { Card } from '@/components/ui/Card';
 import {
-  TrendingUp,
-  MoreVertical,
-  Users2,
-  CalendarCheck,
   UserPlus,
-  Layers,
-  BarChart2,
+  CalendarCheck,
+  UserCheck,
+  UserRoundX,
+  Loader2,
+  AlertCircle,
+  Inbox,
 } from 'lucide-react';
 
 interface KpiCardsProps {
-  onOpenDuplas?: () => void;
+  data: RegistroPaciente[];
+  status: 'loading' | 'ready' | 'error';
 }
 
-export const KpiCards: React.FC<KpiCardsProps> = ({ onOpenDuplas }) => {
+interface Metric {
+  label: string;
+  value: number;
+  context: string;
+  icon: React.ElementType;
+  tone: 'primary' | 'secondary' | 'accent' | 'warning';
+}
+
+const toneClasses: Record<Metric['tone'], string> = {
+  primary: 'bg-primary/10 text-primary-text',
+  secondary: 'bg-secondary/15 text-secondary-text',
+  accent: 'bg-accent/10 text-accent-text',
+  warning: 'bg-warning/10 text-warning-text',
+};
+
+const formatNumber = (value: number) => new Intl.NumberFormat('es-CL').format(value);
+
+export const KpiCards: React.FC<KpiCardsProps> = ({ data, status }) => {
+  const metrics = useMemo<Metric[]>(() => {
+    const totalAtenciones = data.reduce((acc, p) => acc + (p.totalAtenciones ?? 0), 0);
+    const conDupla = data.filter(
+      (p) => p.duplaACargo && p.duplaACargo !== 'Sin dupla asignada',
+    ).length;
+    const activos = data.filter((p) => p.estado === 'Activo').length;
+    const egresados = data.filter((p) => p.estado === 'Egresado').length;
+
+    return [
+      {
+        label: 'Pacientes ingresados',
+        value: data.length,
+        context: `${formatNumber(conDupla)} con dupla a cargo`,
+        icon: UserPlus,
+        tone: 'primary',
+      },
+      {
+        label: 'Total atenciones',
+        value: totalAtenciones,
+        context: 'Suma de atenciones registradas',
+        icon: CalendarCheck,
+        tone: 'secondary',
+      },
+      {
+        label: 'Pacientes activos',
+        value: activos,
+        context: `De ${formatNumber(data.length)} registros`,
+        icon: UserCheck,
+        tone: 'accent',
+      },
+      {
+        label: 'Pacientes egresados',
+        value: egresados,
+        context: `${formatNumber(data.length - egresados)} en curso`,
+        icon: UserRoundX,
+        tone: 'warning',
+      },
+    ];
+  }, [data]);
+
+  const porDupla = useMemo(() => {
+    const totals = new Map<string, number>();
+    data.forEach((paciente) => {
+      const key = paciente.duplaACargo?.trim() || 'Sin dupla asignada';
+      totals.set(key, (totals.get(key) ?? 0) + (paciente.totalAtenciones ?? 0));
+    });
+    return Array.from(totals, ([dupla, atenciones]) => ({ dupla, atenciones }))
+      .sort((a, b) => b.atenciones - a.atenciones)
+      .slice(0, 6);
+  }, [data]);
+
+  const maxAtenciones = porDupla.reduce((acc, d) => Math.max(acc, d.atenciones), 0);
+  const totalGeneral = porDupla.reduce((acc, d) => acc + d.atenciones, 0);
+
+  if (status === 'loading') {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" role="status">
+        <p className="sm:col-span-2 xl:col-span-4 flex items-center gap-2 text-[13px] text-text-muted">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" aria-hidden="true" />
+          Calculando indicadores...
+        </p>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex items-center gap-2 p-4 rounded-[var(--radius-md)] bg-error/10 border border-error/30 text-error-text text-[13px]">
+        <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+        No se pudieron calcular los indicadores del registro clínico.
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-      {/* 2x2 Metric Cards (Left 2 columns on XL) */}
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Card 1: Total Pacientes Ingresados */}
-        <div className="bg-surface rounded-[var(--radius-md)] border border-border p-5 shadow-xs hover:shadow-sm transition-all relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-primary/10 text-primary flex items-center justify-center">
-                <UserPlus className="w-4 h-4" />
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <Card key={metric.label} className="p-5">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${toneClasses[metric.tone]}`}
+                  aria-hidden="true"
+                >
+                  <Icon className="w-4 h-4" />
+                </span>
+                <span className="text-[13px] font-semibold text-text">{metric.label}</span>
               </div>
-              <span className="text-xs font-semibold text-text">Pacientes Ingresados</span>
-            </div>
-            <button className="text-text-muted hover:text-text p-1 rounded-[var(--radius-xs)]">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-2xl sm:text-3xl font-bold text-text tracking-tight">148</h3>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="inline-flex items-center text-xs font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-[var(--radius-xs)]">
-                <TrendingUp className="w-3 h-3 mr-0.5" /> +13.6%
-              </span>
-              <span className="text-xs text-text-muted">vs mes anterior</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Total Atenciones */}
-        <div className="bg-surface rounded-[var(--radius-md)] border border-border p-5 shadow-xs hover:shadow-sm transition-all relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-secondary/15 text-secondary flex items-center justify-center">
-                <CalendarCheck className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-text">Total Atenciones</span>
-            </div>
-            <button className="text-text-muted hover:text-text p-1 rounded-[var(--radius-xs)]">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-2xl sm:text-3xl font-bold text-text tracking-tight">429</h3>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="inline-flex items-center text-xs font-semibold text-secondary bg-secondary/15 px-1.5 py-0.5 rounded-[var(--radius-xs)]">
-                <TrendingUp className="w-3 h-3 mr-0.5" /> +19.2%
-              </span>
-              <span className="text-xs text-text-muted">vs mes anterior</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Casos Activos / Seguimiento */}
-        <div className="bg-surface rounded-[var(--radius-md)] border border-border p-5 shadow-xs hover:shadow-sm transition-all relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-primary/10 text-primary flex items-center justify-center">
-                <Users2 className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-text">Casos en Seguimiento</span>
-            </div>
-            <button className="text-text-muted hover:text-text p-1 rounded-[var(--radius-xs)]">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-2xl sm:text-3xl font-bold text-text tracking-tight">86</h3>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="inline-flex items-center text-xs font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-[var(--radius-xs)]">
-                <TrendingUp className="w-3 h-3 mr-0.5" /> +8.2%
-              </span>
-              <span className="text-xs text-text-muted">adherencia alta</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Duplas Operativas */}
-        <div className="bg-surface rounded-[var(--radius-md)] border border-border p-5 shadow-xs hover:shadow-sm transition-all relative">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-secondary/15 text-secondary flex items-center justify-center">
-                <Layers className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-text">Duplas de Atención</span>
-            </div>
-            <button className="text-text-muted hover:text-text p-1 rounded-[var(--radius-xs)]">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <h3 className="text-2xl sm:text-3xl font-bold text-text tracking-tight">4 Activas</h3>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="inline-flex items-center text-xs font-semibold text-secondary bg-secondary/15 px-1.5 py-0.5 rounded-[var(--radius-xs)]">
-                100%
-              </span>
-              <span className="text-xs text-text-muted">cobertura clínica</span>
-            </div>
-            {onOpenDuplas && (
-              <button
-                onClick={onOpenDuplas}
-                className="mt-3 text-xs font-semibold text-primary hover:text-primary-hover underline underline-offset-2 transition-colors"
-              >
-                Gestionar duplas →
-              </button>
-            )}
-          </div>
-        </div>
+              <p className="mt-4 text-2xl sm:text-3xl font-bold text-text tracking-tight tnum">
+                {formatNumber(metric.value)}
+              </p>
+              <p className="mt-1.5 text-[13px] text-text-muted">{metric.context}</p>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Right Visual Chart Card (Reporte Atenciones por Dupla) */}
-      <div className="bg-surface rounded-[var(--radius-md)] border border-border p-5 shadow-xs flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-[var(--radius-sm)] bg-primary/10 text-primary flex items-center justify-center">
-                <BarChart2 className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-text">Reporte por Dupla</span>
-            </div>
-            <button className="text-text-muted hover:text-text p-1 rounded-[var(--radius-xs)]">
-              <MoreVertical className="w-4 h-4" />
-            </button>
+      <Card className="p-5 flex flex-col">
+        <h2 className="text-sm font-semibold text-text">Atenciones por dupla</h2>
+        <p className="text-[13px] text-text-muted mt-0.5">
+          {totalGeneral > 0
+            ? `${formatNumber(totalGeneral)} atenciones registradas`
+            : 'Sin atenciones registradas'}
+        </p>
+
+        {porDupla.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+            <Inbox className="w-6 h-6 text-text-muted mb-2" aria-hidden="true" />
+            <p className="text-[13px] text-text-muted">Aún no hay atenciones que graficar.</p>
           </div>
+        ) : (
+          <ul className="flex-1 flex flex-col justify-center gap-3 mt-4">
+            {porDupla.map(({ dupla, atenciones }) => {
+              const pct = maxAtenciones > 0 ? Math.round((atenciones / maxAtenciones) * 100) : 0;
+              return (
+                <li key={dupla}>
+                  <div className="flex items-baseline justify-between gap-3 mb-1">
+                    <span className="text-[13px] text-text truncate" title={dupla}>
+                      {dupla}
+                    </span>
+                    <span className="text-[13px] font-semibold text-text-muted tnum shrink-0">
+                      {formatNumber(atenciones)}
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 rounded-[var(--radius-full)] bg-surface-muted overflow-hidden"
+                    role="img"
+                    aria-label={`${dupla}: ${atenciones} atenciones, ${pct}% del máximo`}
+                  >
+                    <div
+                      className="h-full rounded-[var(--radius-full)] bg-primary transition-[width] duration-500 ease-out"
+                      style={{ width: `${Math.max(pct, atenciones > 0 ? 4 : 0)}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
-          <div className="flex items-center justify-between mt-3 px-1">
-            <span className="text-xs font-semibold text-text-muted">388 atenciones</span>
-            <span className="text-xs font-bold text-primary">429 atenciones</span>
-          </div>
-
-          {/* Stylized Segmented Bars using Primary & Secondary Tokens */}
-          <div className="grid grid-cols-3 gap-6 h-36 items-end my-3 px-2">
-            {/* Octubre */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end">
-              <div className="w-full flex flex-col gap-1 items-center">
-                <div className="w-8 h-8 rounded-[var(--radius-xs)] bg-primary" title="Dupla 1: 140" />
-                <div className="w-8 h-6 rounded-[var(--radius-xs)] bg-secondary" title="Dupla 2: 95" />
-                <div className="w-8 h-8 rounded-[var(--radius-xs)] bg-success" title="Dupla 3: 110" />
-              </div>
-              <span className="text-[11px] text-text-muted font-medium mt-1">Oct</span>
-            </div>
-
-            {/* Noviembre */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end">
-              <div className="w-full flex flex-col gap-1 items-center">
-                <div className="w-8 h-10 rounded-[var(--radius-xs)] bg-primary" title="Dupla 1: 160" />
-                <div className="w-8 h-8 rounded-[var(--radius-xs)] bg-secondary" title="Dupla 2: 120" />
-                <div className="w-8 h-7 rounded-[var(--radius-xs)] bg-success" title="Dupla 3: 108" />
-              </div>
-              <span className="text-[11px] text-text-muted font-medium mt-1">Nov</span>
-            </div>
-
-            {/* Diciembre */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end">
-              <div className="w-full flex flex-col gap-1 items-center">
-                <div className="w-8 h-12 rounded-[var(--radius-xs)] bg-primary" title="Dupla 1: 185" />
-                <div className="w-8 h-7 rounded-[var(--radius-xs)] bg-secondary" title="Dupla 2: 114" />
-                <div className="w-8 h-9 rounded-[var(--radius-xs)] bg-success" title="Dupla 3: 130" />
-              </div>
-              <span className="text-[11px] text-text-muted font-medium mt-1">Dic</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Legend using Primary, Secondary and Success */}
-        <div className="flex items-center justify-center gap-4 pt-3 border-t border-border text-[11px] text-text-muted">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[var(--radius-full)] bg-primary" /> Dupla 1 (Psico-TO)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[var(--radius-full)] bg-secondary" /> Dupla 2 (Psico-TS)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-[var(--radius-full)] bg-success" /> Dupla 3 (Infanto)
-          </span>
-        </div>
-      </div>
+        <p className="mt-auto pt-4 text-[13px] text-text-muted leading-relaxed">
+          Suma de atenciones registradas por cada dupla responsable.
+        </p>
+      </Card>
     </div>
   );
 };

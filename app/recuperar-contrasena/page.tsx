@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Lock, Mail } from 'lucide-react';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -105,40 +106,42 @@ export default function RecuperarContrasenaPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-background relative overflow-hidden">
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-[var(--radius-full)] bg-primary/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-[var(--radius-full)] bg-accent/10 blur-3xl pointer-events-none" />
-
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 z-10">
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center p-3 rounded-[var(--radius-lg)] bg-primary text-white shadow-md ring-4 ring-primary/10 mb-2">
-              <Activity className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text">
-              SICOLOGIA DATA REPORT
+            <h1 className="inline-flex items-center gap-3 text-left text-2xl sm:text-3xl font-bold tracking-tight text-text">
+              <span className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-[var(--radius-md)] bg-primary text-on-primary">
+                <Activity className="w-6 h-6" aria-hidden="true" />
+              </span>
+              <span>
+                SICOLOGIA
+                <span className="block text-base sm:text-lg font-semibold text-text-muted tracking-normal">
+                  Data Report
+                </span>
+              </span>
             </h1>
-            <p className="text-sm text-text-muted max-w-sm mx-auto">
+            <p className="text-sm text-text-muted max-w-sm mx-auto pt-2">
               {view === 'update'
                 ? 'Define una nueva contraseña para acceder al sistema.'
                 : 'Te enviaremos un enlace para restablecer tu contraseña.'}
             </p>
           </div>
 
-          <div className="bg-surface rounded-[var(--radius-lg)] border border-border shadow-xl p-6 sm:p-8 space-y-6">
+          <Card className="p-6 sm:p-8 space-y-6">
             {view === 'update' ? (
               /* ── UPDATE PASSWORD ── */
               <>
                 <div className="border-b border-border pb-4">
-                  <h2 className="text-lg font-semibold text-text">Nueva Contraseña</h2>
-                  <p className="text-xs text-text-muted mt-0.5">
+                  <h2 className="text-lg font-semibold text-text">Nueva contraseña</h2>
+                  <p className="text-[13px] text-text-muted mt-0.5">
                     Mínimo {MIN_PASSWORD_LENGTH} caracteres
                   </p>
                 </div>
 
                 {updated ? (
-                  <div className="p-3.5 rounded-[var(--radius-sm)] bg-success/15 border border-success/30 text-emerald-900 text-xs flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-success" />
+                  <div role="status" className="p-3.5 rounded-[var(--radius-sm)] bg-success/10 border border-success/30 text-success-text text-[13px] flex items-start gap-2.5 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold">Contraseña actualizada</p>
                       <p className="mt-0.5 opacity-90">Te redirigimos al inicio de sesión...</p>
@@ -147,8 +150,8 @@ export default function RecuperarContrasenaPage() {
                 ) : (
                   <>
                     {error && (
-                      <div className="p-3.5 rounded-[var(--radius-sm)] bg-error/15 border border-error/30 text-rose-900 text-xs flex items-start gap-2.5">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-error" />
+                      <div role="alert" className="p-3.5 rounded-[var(--radius-sm)] bg-error/10 border border-error/30 text-error-text text-[13px] flex items-start gap-2.5 animate-fade-in">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="font-semibold">No fue posible continuar</p>
                           <p className="mt-0.5 opacity-90">{error}</p>
@@ -158,7 +161,7 @@ export default function RecuperarContrasenaPage() {
 
                     <form onSubmit={handleUpdate} className="space-y-4">
                       <Input
-                        label="Nueva Contraseña"
+                        label="Nueva contraseña"
                         isPassword
                         placeholder="••••••••"
                         value={password}
@@ -185,8 +188,9 @@ export default function RecuperarContrasenaPage() {
                         size="lg"
                         className="w-full mt-2"
                         isLoading={isSubmitting}
+                        loadingLabel="Procesando solicitud"
                       >
-                        Guardar Contraseña
+                        Guardar contraseña
                       </Button>
                     </form>
                   </>
@@ -196,15 +200,15 @@ export default function RecuperarContrasenaPage() {
               /* ── REQUEST RESET ── */
               <>
                 <div className="border-b border-border pb-4">
-                  <h2 className="text-lg font-semibold text-text">Recuperar Contraseña</h2>
-                  <p className="text-xs text-text-muted mt-0.5">
+                  <h2 className="text-lg font-semibold text-text">Recuperar contraseña</h2>
+                  <p className="text-[13px] text-text-muted mt-0.5">
                     Ingresa tu correo y te enviaremos un enlace seguro
                   </p>
                 </div>
 
                 {error && (
-                  <div className="p-3.5 rounded-[var(--radius-sm)] bg-error/15 border border-error/30 text-rose-900 text-xs flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-error" />
+                  <div role="alert" className="p-3.5 rounded-[var(--radius-sm)] bg-error/10 border border-error/30 text-error-text text-[13px] flex items-start gap-2.5 animate-fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <p className="font-semibold">No fue posible enviar el correo</p>
                       <p className="mt-0.5 opacity-90">{error}</p>
@@ -213,8 +217,8 @@ export default function RecuperarContrasenaPage() {
                 )}
 
                 {sent ? (
-                  <div className="p-3.5 rounded-[var(--radius-sm)] bg-success/15 border border-success/30 text-emerald-900 text-xs flex items-start gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-success" />
+                  <div role="status" className="p-3.5 rounded-[var(--radius-sm)] bg-success/10 border border-success/30 text-success-text text-[13px] flex items-start gap-2.5 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold">Revisa tu correo</p>
                       <p className="mt-0.5 opacity-90">
@@ -226,7 +230,7 @@ export default function RecuperarContrasenaPage() {
                 ) : (
                   <form onSubmit={handleRequest} className="space-y-4">
                     <Input
-                      label="Correo Electrónico"
+                      label="Correo electrónico"
                       type="email"
                       placeholder="ejemplo@datareport.cl"
                       value={email}
@@ -242,36 +246,37 @@ export default function RecuperarContrasenaPage() {
                       size="lg"
                       className="w-full mt-2"
                       isLoading={isSubmitting}
+                        loadingLabel="Procesando solicitud"
                     >
-                      Enviar Enlace
+                      Enviar enlace
                     </Button>
                   </form>
                 )}
               </>
             )}
 
-            <div className="pt-4 border-t border-border text-center">
+            <div className="pt-5 mt-6 border-t border-border text-center">
               <Link
                 href="/login"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-muted hover:text-primary-text"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
                 Volver al inicio de sesión
               </Link>
             </div>
-          </div>
+          </Card>
 
-          <div className="flex items-center justify-center gap-2 text-center text-xs text-text-muted">
-            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+          <p className="flex items-center justify-center gap-2 text-center text-[13px] text-text-muted">
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" aria-hidden="true" />
             <span>
               Acceso seguro y protegido bajo normativa de confidencialidad clínica.
             </span>
-          </div>
+          </p>
         </div>
       </main>
 
-      <footer className="py-4 text-center text-xs text-text-muted border-t border-border bg-surface/50">
-        SICOLOGIA DATA REPORT © {new Date().getFullYear()} — Gestión por Duplas Profesionales
+      <footer className="py-4 text-center text-[13px] text-text-muted border-t border-border bg-surface-muted">
+        SICOLOGIA DATA REPORT © {new Date().getFullYear()} — Gestión por duplas profesionales
       </footer>
     </div>
   );

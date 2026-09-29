@@ -14,8 +14,36 @@
   --color-warning: #F59E0B;
   --color-info: #3B82F6;
   --color-text: #18181B;
-  --color-text-muted: #71717A;
+  --color-text-muted: #5F5F6B;
   --color-border: #E4E4E7;
+
+  /* Superficies neutras — sustituyen los valores zinc-* sueltos */
+  --color-surface-muted: #F4F4F5;
+  --color-surface-hover: #ECECEE;
+  --color-surface-sunken: #EFEFF1;
+
+  /* Texto sobre superficies de color.
+     Los tonos base de la paleta no alcanzan 4.5:1 con texto blanco o
+     sobre su propio tinte al 10-15%, asi que cada familia de estado
+     declara su tono legible para texto y su tono profundo para relleno. */
+  --color-primary-text: #1A5C7A;   /* 7.4:1 sobre blanco */
+  --color-secondary-text: #2F6B69; /* 6.1:1 sobre blanco */
+  --color-accent-text: #B8470F;    /* 5.3:1 sobre blanco */
+  --color-success-text: #15803D;   /* 5.0:1 sobre blanco */
+  --color-warning-text: #B45309;   /* 5.0:1 sobre blanco */
+  --color-error-text: #B91C1C;     /* 6.5:1 sobre blanco */
+  --color-info-text: #1D4ED8;      /* 6.7:1 sobre blanco */
+
+  --color-accent-strong: #B8470F;
+  --color-secondary-strong: #33706E;
+  --color-error-strong: #B91C1C;
+  --color-success-strong: #15803D;
+  --color-warning-strong: #B45309;
+  --color-info-strong: #1D4ED8;
+
+  /* Foco */
+  --color-focus: #277DA1;
+  --color-focus-ring: rgb(39 125 161 / 0.32);
 
   /* 05. Border Radius — DESIGN_SYSTEM.md */
   --radius-xs: 4px;
@@ -23,29 +51,96 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 9999px;
+
+  /* Elevacion. Cada nivel declara un unico mecanismo:
+     tarjeta = borde, dialogo = sombra. Nunca borde + sombra ancha. */
+  --shadow-overlay: 0 24px 48px -16px rgb(24 24 27 / 0.24),
+    0 8px 16px -8px rgb(24 24 27 / 0.10);
+  --shadow-menu: 0 12px 28px -10px rgb(24 24 27 / 0.20),
+    0 2px 6px -2px rgb(24 24 27 / 0.08);
+  --shadow-inset-well: inset 0 1px 2px rgb(24 24 27 / 0.05);
 }
 
 @theme {
   --color-primary: var(--color-primary);
   --color-primary-hover: var(--color-primary-hover);
+  --color-primary-text: var(--color-primary-text);
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
+  --color-accent-text: var(--color-accent-text);
+  --color-accent-strong: var(--color-accent-strong);
   --color-secondary: var(--color-secondary);
+  --color-secondary-text: var(--color-secondary-text);
+  --color-secondary-strong: var(--color-secondary-strong);
   --color-background: var(--color-background);
   --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-surface-sunken: var(--color-surface-sunken);
   --color-success: var(--color-success);
+  --color-success-text: var(--color-success-text);
+  --color-success-strong: var(--color-success-strong);
   --color-error: var(--color-error);
+  --color-error-text: var(--color-error-text);
+  --color-error-strong: var(--color-error-strong);
   --color-warning: var(--color-warning);
+  --color-warning-text: var(--color-warning-text);
+  --color-warning-strong: var(--color-warning-strong);
   --color-info: var(--color-info);
+  --color-info-text: var(--color-info-text);
+  --color-info-strong: var(--color-info-strong);
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
   --color-border: var(--color-border);
+  --color-focus: var(--color-focus);
 
   --radius-xs: var(--radius-xs);
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-full: var(--radius-full);
+
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-menu: var(--shadow-menu);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-overlay-in: overlay-in 160ms var(--ease-out-expo);
+  --animate-dialog-in: dialog-in 220ms var(--ease-out-expo);
+  --animate-menu-in: menu-in 140ms var(--ease-out-expo);
+  --animate-row-in: row-in 200ms var(--ease-out-expo);
+  --animate-fade-in: fade-in 160ms var(--ease-out-expo);
+  --animate-slide-in-left: slide-in-left 200ms var(--ease-out-expo);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 body {
@@ -56,4 +151,66 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Superficies que el navegador trae y que ningun sistema de diseno cubre.
+   Es la senal mas barata de que una pagina fue disenada y no ensamblada. */
+::selection {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-text);
+}
+
+input,
+textarea,
+select {
+  caret-color: var(--color-primary);
+  accent-color: var(--color-primary);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 34%, transparent) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--radius-full);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-text-muted) 52%, transparent);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Cifras clinicas: columnas de numeros alineadas al digito. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

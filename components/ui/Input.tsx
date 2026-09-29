@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -27,22 +27,21 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     ref
   ) => {
     const [showPassword, setShowPassword] = useState(false);
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
+    const messageId = `${inputId}-message`;
     const effectiveType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
     return (
       <div className="w-full flex flex-col gap-1.5 text-left">
         {label && (
-          <label
-            htmlFor={inputId}
-            className="text-xs font-semibold tracking-wide uppercase text-text-muted flex items-center justify-between"
-          >
-            <span>{label}</span>
+          <label htmlFor={inputId} className="text-xs font-semibold text-text">
+            {label}
           </label>
         )}
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3.5 flex items-center pointer-events-none text-text-muted">
+            <div className="absolute left-3.5 flex items-center pointer-events-none text-text-muted" aria-hidden="true">
               {leftIcon}
             </div>
           )}
@@ -50,12 +49,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             type={effectiveType}
-            className={`w-full bg-surface text-text-primary placeholder:text-text-muted/60 border rounded-[var(--radius-sm)] py-2.5 text-sm transition-all duration-150 focus:outline-none focus:ring-2 ${
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || hint ? messageId : undefined}
+            className={`w-full bg-surface text-text placeholder:text-text-muted border rounded-[var(--radius-sm)] py-2.5 text-sm transition-colors duration-150 ${
               leftIcon ? 'pl-10' : 'pl-3.5'
             } ${isPassword ? 'pr-11' : 'pr-3.5'} ${
               error
-                ? 'border-error focus:border-error focus:ring-error/20'
-                : 'border-border focus:border-primary focus:ring-primary/20 hover:border-text-muted/40'
+                ? 'border-error focus:border-error'
+                : 'border-border hover:border-text-muted/50 focus:border-primary'
             } ${className}`}
             {...props}
           />
@@ -63,16 +64,23 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              tabIndex={-1}
-              className="absolute right-3 p-1 rounded hover:bg-black/5 text-text-muted hover:text-text-primary transition-colors focus:outline-none"
-              aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              aria-pressed={showPassword}
+              className="absolute right-2.5 p-1.5 rounded-[var(--radius-xs)] text-text-muted hover:text-text hover:bg-surface-hover transition-colors cursor-pointer"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span className="sr-only">{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</span>
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <Eye className="w-4 h-4" aria-hidden="true" />
+              )}
             </button>
           )}
         </div>
-        {error && <p className="text-xs text-error font-medium">{error}</p>}
-        {hint && !error && <p className="text-xs text-text-muted">{hint}</p>}
+        {(error || hint) && (
+          <p id={messageId} className={`text-xs ${error ? 'text-error-text font-medium' : 'text-text-muted'}`}>
+            {error ?? hint}
+          </p>
+        )}
       </div>
     );
   }

@@ -1,244 +1,263 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { usePathname } from 'next/navigation';
-import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
+import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import {
-  LayoutDashboard,
+  PanelLeftClose,
+  PanelLeft,
+  X,
+  UserCog,
   Users2,
   UserCheck,
-  UserCog,
   MessageSquare,
+  HeartPulse,
   FileText,
   BarChart3,
   Layers,
   Settings,
   ShieldCheck,
   HelpCircle,
-  ChevronLeft,
-  ChevronRight,
-  HeartPulse,
+  LayoutDashboard,
+  type LucideIcon,
 } from 'lucide-react';
+
+type MenuAction = 'usuarios' | 'duplas';
 
 interface MenuItem {
   label: string;
   icon: LucideIcon;
   href?: string;
-  action?: 'duplas' | 'usuarios';
-  badge?: string;
+  action?: MenuAction;
   active?: boolean;
 }
 
+interface MenuGroup {
+  title: string;
+  items: MenuItem[];
+}
+
 interface SidebarProps {
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
-  onOpenDuplas?: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onOpenDuplas: () => void;
   onOpenUsuarios?: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  collapsed: controlledCollapsed,
+  collapsed,
   onToggleCollapse,
   onOpenDuplas,
   onOpenUsuarios,
+  mobileOpen,
+  onCloseMobile,
 }) => {
-  const [internalCollapsed, setInternalCollapsed] = useState(false);
-  const pathname = usePathname();
   const { user } = useAuth();
-
-  const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
-  const toggle = onToggleCollapse || (() => setInternalCollapsed(!internalCollapsed));
-
+  const pathname = usePathname();
   const isAdmin = user?.rol === 'ADMIN';
 
-  const menuItems: MenuItem[] = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: isAdmin ? '/admin' : '/clinico', active: true },
-    { label: 'Usuarios', icon: UserCog, action: 'usuarios' as const },
-    { label: 'Duplas a Cargo', icon: Users2, action: 'duplas' as const, badge: '3' },
-    { label: 'Pacientes', icon: UserCheck, href: '#pacientes' },
-    { label: 'Alertas & Mensajes', icon: MessageSquare, href: '#mensajes' },
-  ].filter((item) => item.action !== 'usuarios' || isAdmin);
-
-  const toolItems = [
-    { label: 'Registro Atenciones', icon: HeartPulse, href: '#atenciones' },
-    { label: 'Fichas Clínicas', icon: FileText, href: '#fichas' },
-    { label: 'Analítica & UEGO', icon: BarChart3, href: '#analitica' },
-    { label: 'Tipologías & Diagnósticos', icon: Layers, href: '#diagnosticos' },
+  const groups: MenuGroup[] = [
+    {
+      title: 'Principal',
+      items: [
+        { label: 'Dashboard', icon: LayoutDashboard, href: isAdmin ? '/admin' : '/clinico', active: true },
+        { label: 'Pacientes', icon: UserCheck, href: '#pacientes' },
+      ],
+    },
+    {
+      title: 'Herramientas',
+      items: [
+        { label: 'Duplas a cargo', icon: Users2, action: 'duplas' },
+        { label: 'Alertas y mensajes', icon: MessageSquare },
+        { label: 'Registro atenciones', icon: HeartPulse },
+        { label: 'Fichas clínicas', icon: FileText },
+      ],
+    },
+    {
+      title: 'Análisis',
+      items: [
+        { label: 'Analítica y UEGO', icon: BarChart3 },
+        { label: 'Tipologías y diagnósticos', icon: Layers },
+      ],
+    },
+    {
+      title: 'Sistema',
+      items: [
+        ...(isAdmin ? [{ label: 'Usuarios', icon: UserCog, action: 'usuarios' as MenuAction }] : []),
+        { label: 'Ajustes', icon: Settings },
+        { label: 'Seguridad y RLS', icon: ShieldCheck },
+        { label: 'Centro de ayuda', icon: HelpCircle },
+      ],
+    },
   ];
 
-  const systemItems = [
-    { label: 'Ajustes', icon: Settings, href: '#ajustes' },
-    { label: 'Seguridad & RLS', icon: ShieldCheck, href: '#seguridad' },
-    { label: 'Centro de Ayuda', icon: HelpCircle, href: '#ayuda' },
-  ];
+  const handleItem = (item: MenuItem) => {
+    onCloseMobile();
+    if (item.action === 'duplas') onOpenDuplas();
+    if (item.action === 'usuarios') onOpenUsuarios?.();
+  };
 
-  return (
-    <aside
-      className={`h-screen sticky top-0 bg-surface border-r border-border flex flex-col justify-between transition-all duration-300 z-40 shrink-0 select-none ${
-        isCollapsed ? 'w-20' : 'w-64'
-      }`}
-    >
-      {/* Top Header */}
-      <div className="flex flex-col">
-        <div className="h-16 px-4 flex items-center justify-between border-b border-border">
-          {!isCollapsed && (
-            <Link href={isAdmin ? '/admin' : '/clinico'} className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-[var(--radius-sm)] bg-primary text-white flex items-center justify-center shadow-xs group-hover:bg-primary-hover transition-colors">
-                <HeartPulse className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-base tracking-tight text-text leading-tight">
-                  DataReport
-                </span>
-                <span className="text-[10px] text-primary font-semibold uppercase tracking-wider">
-                  Salud Mental
-                </span>
-              </div>
-            </Link>
-          )}
+  const navContent = (
+    <>
+      <div
+        className={`flex items-center gap-2.5 h-16 shrink-0 border-b border-border ${
+          collapsed ? 'justify-center px-2' : 'px-4'
+        }`}
+      >
+        <span
+          className="w-8 h-8 rounded-[var(--radius-md)] bg-primary text-on-primary flex items-center justify-center shrink-0"
+          aria-hidden="true"
+        >
+          <UserCheck className="w-4 h-4" />
+        </span>
+        {!collapsed && (
+          <span className="min-w-0">
+            <span className="block text-[13px] font-bold text-text leading-tight truncate">
+              SICOLOGIA DATA
+            </span>
+            <span className="block text-[13px] text-text-muted leading-tight truncate">Report clínico</span>
+          </span>
+        )}
+        <IconButton
+          label="Cerrar navegación"
+          size="sm"
+          onClick={onCloseMobile}
+          className="ml-auto lg:hidden"
+        >
+          <X className="w-4 h-4" />
+        </IconButton>
+      </div>
 
-          {isCollapsed && (
-            <div className="mx-auto w-8 h-8 rounded-[var(--radius-sm)] bg-primary text-white flex items-center justify-center shadow-xs">
-              <HeartPulse className="w-4 h-4" />
-            </div>
-          )}
-
-          <button
-            onClick={toggle}
-            className="p-1.5 rounded-[var(--radius-sm)] border border-border hover:bg-zinc-100 text-text-muted hover:text-text transition-colors focus:outline-none"
-            title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-          >
-            {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        {/* Navigation Sections */}
-        <div className="p-3 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)]">
-          {/* Group 1: Menu */}
-          <div>
-            {!isCollapsed && (
-              <p className="px-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Menu
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3" aria-label="Navegación principal">
+        {groups.map((group) => (
+          <div key={group.title} className="mb-4 last:mb-0">
+            {!collapsed && (
+              <p className="px-4 pb-1.5 text-[11px] font-semibold text-text-muted uppercase tracking-wider">
+                {group.title}
               </p>
             )}
-            <nav className="space-y-1">
-              {menuItems.map((item) => {
+            <ul className="space-y-0.5 px-2">
+              {group.items.map((item) => {
+                const isCurrent = item.active || (item.href === '#pacientes' && pathname?.includes('clinico'));
                 const Icon = item.icon;
-                const action =
-                  item.action === 'usuarios' ? onOpenUsuarios : item.action === 'duplas' ? onOpenDuplas : undefined;
+                const content = (
+                  <>
+                    <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </>
+                );
 
-                if (action) {
+                const baseClass = `w-full flex items-center gap-2.5 rounded-[var(--radius-sm)] text-[13px] font-medium transition-colors ${
+                  collapsed ? 'justify-center px-2 py-2' : 'px-3 py-2'
+                }`;
+
+                if (item.action) {
                   return (
-                    <button
-                      key={item.label}
-                      onClick={action}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-all text-text-muted hover:text-text hover:bg-zinc-100"
-                      title={isCollapsed ? item.label : undefined}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Icon className="w-4 h-4 shrink-0 text-text-muted" />
-                        {!isCollapsed && <span className="truncate">{item.label}</span>}
-                      </div>
-                      {!isCollapsed && item.badge && (
-                        <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-[var(--radius-full)]">
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
+                    <li key={item.label}>
+                      <button
+                        onClick={() => handleItem(item)}
+                        className={`${baseClass} text-text-muted hover:bg-primary/10 hover:text-primary-text cursor-pointer`}
+                      >
+                        {content}
+                      </button>
+                    </li>
+                  );
+                }
+
+                if (item.href) {
+                  const isHash = item.href.startsWith('#');
+                  return (
+                    <li key={item.label}>
+                      <a
+                        href={item.href}
+                        onClick={onCloseMobile}
+                        aria-current={isCurrent ? 'page' : undefined}
+                        className={`${baseClass} ${
+                          isCurrent
+                            ? 'bg-primary/10 text-primary-text font-semibold'
+                            : 'text-text-muted hover:bg-primary/10 hover:text-primary-text'
+                        }`}
+                      >
+                        {content}
+                      </a>
+                    </li>
                   );
                 }
 
                 return (
-                  <Link
-                    key={item.label}
-                    href={item.href ?? '#'}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium transition-all ${
-                      item.active
-                        ? 'bg-primary/10 text-primary font-semibold shadow-xs'
-                        : 'text-text-muted hover:text-text hover:bg-zinc-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          item.active ? 'text-primary' : 'text-text-muted'
-                        }`}
-                      />
-                      {!isCollapsed && <span className="truncate">{item.label}</span>}
-                    </div>
-                    {!isCollapsed && item.badge && (
-                      <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-[var(--radius-full)]">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
+                  <li key={item.label}>
+                    <span
+                      aria-disabled="true"
+                      title="Próximamente"
+                      className={`${baseClass} text-text-muted/60 cursor-not-allowed select-none`}
+                    >
+                      {content}
+                      {!collapsed && (
+                        <span className="ml-auto text-[10px] font-medium uppercase tracking-wide text-text-muted bg-surface-muted border border-border px-1.5 py-0.5 rounded-[var(--radius-xs)] shrink-0">
+                          Próximamente
+                        </span>
+                      )}
+                    </span>
+                  </li>
                 );
               })}
-            </nav>
+            </ul>
           </div>
+        ))}
+      </nav>
 
-          {/* Group 2: Tools / Gestión */}
-          <div>
-            {!isCollapsed && (
-              <p className="px-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Gestión Clínica
-              </p>
-            )}
-            <nav className="space-y-1">
-              {toolItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium text-text-muted hover:text-text hover:bg-zinc-100 transition-all"
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Group 3: System */}
-          <div>
-            {!isCollapsed && (
-              <p className="px-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Configuración
-              </p>
-            )}
-            <nav className="space-y-1">
-              {systemItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-sm)] text-sm font-medium text-text-muted hover:text-text hover:bg-zinc-100 transition-all"
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{item.label}</span>}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Branding */}
-      <div className="p-4 border-t border-border">
-        {!isCollapsed ? (
-          <p className="text-[11px] text-text-muted text-center">
-            © {new Date().getFullYear()} DataReport, Inc.
-          </p>
+      <div className={`shrink-0 border-t border-border ${collapsed ? 'p-2' : 'p-3'}`}>
+        {collapsed ? (
+          <IconButton
+            label="Expandir menú"
+            size="sm"
+            onClick={onToggleCollapse}
+            className="w-full justify-center"
+          >
+            <PanelLeft className="w-4 h-4" />
+          </IconButton>
         ) : (
-          <div className="w-2 h-2 rounded-[var(--radius-full)] bg-primary mx-auto" title="Sistema en línea" />
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="w-full justify-start text-text-muted"
+              leftIcon={<PanelLeftClose className="w-4 h-4" />}
+            >
+              Colapsar menú
+            </Button>
+            <p className="mt-2 text-[13px] text-text-muted text-center tnum">
+              {new Date().getFullYear()} · v1.0
+            </p>
+          </>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside
+        className={`hidden lg:flex flex-col shrink-0 bg-surface border-r border-border transition-[width] duration-200 ${
+          collapsed ? 'w-16' : 'w-64'
+        }`}
+      >
+        {navContent}
+      </aside>
+
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="absolute inset-0 bg-text/50 animate-fade-in" onClick={onCloseMobile} />
+          <aside className="relative w-64 max-w-[80vw] bg-surface border-r border-border flex flex-col animate-slide-in-left">
+            {navContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

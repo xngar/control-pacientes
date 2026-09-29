@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
+import { duplaService } from '@/services/duplaService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { X, Save, UserPlus, Edit3, Loader2 } from 'lucide-react';
+import { IconButton } from '@/components/ui/IconButton';
+import { Modal } from '@/components/ui/Modal';
+import { CardFooter } from '@/components/ui/Card';
+import { AlertCircle, X, Save, UserPlus, Edit3, ChevronDown } from 'lucide-react';
 
 interface PatientFormModalProps {
   isOpen: boolean;
@@ -14,8 +18,10 @@ interface PatientFormModalProps {
   pacienteToEdit?: RegistroPaciente | null;
 }
 
+const SIN_DUPLA = 'Sin dupla asignada';
+
 const DEFAULT_PACIENTE: Omit<RegistroPaciente, 'id' | 'numero'> = {
-  duplaACargo: 'Dupla 1 (Ps. Tomás Valenzuela - T.O. Camila Soto)',
+  duplaACargo: SIN_DUPLA,
   estado: 'Activo',
   fechaDerivacionDupla: new Date().toISOString().split('T')[0],
   fechaEgreso: '',
@@ -61,22 +67,41 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
   const [formData, setFormData] = useState<Omit<RegistroPaciente, 'id' | 'numero'>>(DEFAULT_PACIENTE);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplas, setDuplas] = useState<string[]>([]);
+  const duplaFieldId = useId();
 
-  useEffect(() => {
+  const isEditing = !!pacienteToEdit?.id;
+  const formKey = isOpen ? (pacienteToEdit?.id ?? 'new') : null;
+  const [syncedKey, setSyncedKey] = useState<string | null>(null);
+
+  if (isOpen && formKey !== syncedKey) {
+    setSyncedKey(formKey);
+    setError(null);
     if (pacienteToEdit) {
       const { id, numero, ...rest } = pacienteToEdit;
       setFormData(rest);
     } else {
       setFormData(DEFAULT_PACIENTE);
     }
-    setError(null);
-  }, [pacienteToEdit, isOpen]);
+  }
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    duplaService.getAll().then((rows) => {
+      if (cancelled) return;
+      setDuplas(rows.map((d) => d.nombreDupla));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const isEditing = !!pacienteToEdit?.id;
-
-  const handleChange = (field: keyof typeof formData, value: any) => {
+  const handleChange = (field: keyof typeof formData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -85,7 +110,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     setError(null);
 
     if (!formData.nombre.trim() || !formData.rut.trim() || !formData.diagnostico.trim()) {
-      setError('Por favor completa al menos el Nombre, RUT y Diagnóstico.');
+      setError('Completa al menos el nombre, el RUT y el diagnóstico.');
       return;
     }
 
@@ -94,7 +119,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       if (isEditing && pacienteToEdit?.id) {
         const res = await pacienteService.update(pacienteToEdit.id, formData);
         if (!res.success) {
-          setError(res.error || 'Error al actualizar paciente');
+          setError(res.error || 'No se pudo actualizar el paciente.');
           setIsSaving(false);
           return;
         }
@@ -106,67 +131,68 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       } else {
         const res = await pacienteService.create(formData);
         if (res.error || !res.data) {
-          setError(res.error || 'Error al guardar paciente');
+          setError(res.error || 'No se pudo guardar el paciente.');
           setIsSaving(false);
           return;
         }
         onSaved(res.data);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el paciente.');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const duplaOptions = duplas.includes(formData.duplaACargo)
+    ? duplas
+    : [formData.duplaACargo, ...duplas].filter(Boolean);
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-surface w-full max-w-3xl rounded-[var(--radius-lg)] border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between gap-4 bg-zinc-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[var(--radius-sm)] bg-primary/10 text-primary flex items-center justify-center">
-              {isEditing ? <Edit3 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-text">
-                {isEditing ? 'Editar Ficha de Paciente' : 'Registrar Nuevo Paciente'}
-              </h2>
-              <p className="text-xs text-text-muted">
-                {isEditing
-                  ? `Modificando registro #${pacienteToEdit.numero} en Supabase`
-                  : 'Ingresa los datos para registrar la ficha clínica y asignar dupla'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[var(--radius-sm)] hover:bg-zinc-200 text-text-muted hover:text-text transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <Modal isOpen onClose={onClose} labelledBy="paciente-form-title" size="xl">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+        <span
+          className="w-9 h-9 rounded-[var(--radius-sm)] bg-primary/10 text-primary-text flex items-center justify-center shrink-0"
+          aria-hidden="true"
+        >
+          {isEditing ? <Edit3 className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="paciente-form-title" className="text-base font-bold text-text">
+            {isEditing ? 'Editar ficha de paciente' : 'Registrar nuevo paciente'}
+          </h2>
+          <p className="text-[13px] text-text-muted truncate">
+            {isEditing
+              ? `Registro #${pacienteToEdit?.numero}`
+              : 'Los campos marcados con asterisco son obligatorios'}
+          </p>
         </div>
+        <IconButton label="Cerrar formulario de paciente" size="sm" onClick={onClose}>
+          <X className="w-4 h-4" />
+        </IconButton>
+      </div>
 
-        {/* Error notice */}
-        {error && (
-          <div className="mx-6 mt-4 p-3 rounded-[var(--radius-sm)] bg-error/15 text-rose-900 border border-error/30 text-xs">
-            {error}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          {error && (
+            <p
+              role="alert"
+              className="flex items-start gap-2 p-3 rounded-[var(--radius-sm)] bg-error/10 text-error-text border border-error/30 text-[13px]"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              {error}
+            </p>
+          )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-          {/* Section 1: Datos Personales */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-text border-b border-border pb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" /> Datos Personales & Identificación
-            </h3>
+          {/* Datos personales */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Datos personales e identificación</legend>
+            <SectionTitle>Datos personales e identificación</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
                 <Input
-                  label="Nombre Completo *"
+                  label="Nombre completo"
                   placeholder="Ej: Sofía Antonia Morales Silva"
                   value={formData.nombre}
                   onChange={(e) => handleChange('nombre', e.target.value)}
@@ -174,7 +200,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 />
               </div>
               <Input
-                label="RUT *"
+                label="RUT"
                 placeholder="Ej: 21.987.654-1"
                 value={formData.rut}
                 onChange={(e) => handleChange('rut', e.target.value)}
@@ -183,8 +209,10 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
               <Input
                 label="Edad"
                 type="number"
+                min={0}
+                max={120}
                 value={formData.edad}
-                onChange={(e) => handleChange('edad', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleChange('edad', parseInt(e.target.value, 10) || 0)}
               />
               <Input
                 label="EG"
@@ -193,65 +221,41 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 onChange={(e) => handleChange('eg', e.target.value)}
               />
               <Input
-                label="Teléfono Principal"
+                label="Teléfono principal"
                 placeholder="+56 9 1234 5678"
                 value={formData.telefono}
                 onChange={(e) => handleChange('telefono', e.target.value)}
               />
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section 2: Dupla & Estado */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-text border-b border-border pb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" /> Asignación de Dupla & Estado
-            </h3>
+          {/* Dupla y estado */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Asignación de dupla y estado</legend>
+            <SectionTitle>Asignación de dupla y estado</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[11px]">
-                  Dupla a Cargo
-                </label>
-                <select
-                  value={formData.duplaACargo}
-                  onChange={(e) => handleChange('duplaACargo', e.target.value)}
-                  className="w-full bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="Dupla 1 (Ps. Tomás Valenzuela - T.O. Camila Soto)">
-                    Dupla 1 (Ps. Tomás Valenzuela - T.O. Camila Soto)
-                  </option>
-                  <option value="Dupla 2 (Ps. Andrea Ríos - T.S. Marco Peña)">
-                    Dupla 2 (Ps. Andrea Ríos - T.S. Marco Peña)
-                  </option>
-                  <option value="Dupla 3 (Ps. Diego Morales - T.O. Carla Fuentes)">
-                    Dupla 3 (Ps. Diego Morales - T.O. Carla Fuentes)
-                  </option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[11px]">
-                  Estado del Paciente
-                </label>
-                <select
-                  value={formData.estado}
-                  onChange={(e) => handleChange('estado', e.target.value as any)}
-                  className="w-full bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="En Seguimiento">En Seguimiento</option>
-                  <option value="En Espera">En Espera</option>
-                  <option value="Egresado">Egresado</option>
-                  <option value="Derivado">Derivado</option>
-                </select>
-              </div>
+              <SelectField
+                id={duplaFieldId}
+                label="Dupla a cargo"
+                value={formData.duplaACargo}
+                onChange={(v) => handleChange('duplaACargo', v)}
+                options={duplaOptions}
+                emptyHint="Aún no hay duplas registradas. Créalas desde el menú Duplas."
+              />
+              <SelectField
+                id={`${duplaFieldId}-estado`}
+                label="Estado del paciente"
+                value={formData.estado}
+                onChange={(v) => handleChange('estado', v)}
+                options={['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado']}
+              />
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section 3: Diagnóstico y Tipología */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-text border-b border-border pb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" /> Diagnóstico & Tipología
-            </h3>
+          {/* Diagnóstico */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Diagnóstico y tipología</legend>
+            <SectionTitle>Diagnóstico y tipología</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Tipología"
@@ -260,7 +264,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 onChange={(e) => handleChange('tipologia', e.target.value)}
               />
               <Input
-                label="Diagnóstico Principal *"
+                label="Diagnóstico principal"
                 placeholder="Ej: Trastorno del Espectro Autista (TEA)"
                 value={formData.diagnostico}
                 onChange={(e) => handleChange('diagnostico', e.target.value)}
@@ -268,148 +272,159 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
               />
               <div className="sm:col-span-2">
                 <Input
-                  label="Observaciones del Diagnóstico"
+                  label="Observaciones del diagnóstico"
                   placeholder="Detalles complementarios del diagnóstico..."
                   value={formData.observacionesDiagnostico}
                   onChange={(e) => handleChange('observacionesDiagnostico', e.target.value)}
                 />
               </div>
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section 4: Fechas y UEGO */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-text border-b border-border pb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" /> Fechas de Ingreso & Derivación
-            </h3>
+          {/* Fechas */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Fechas de ingreso y derivación</legend>
+            <SectionTitle>Fechas de ingreso y derivación</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <Input
-                label="Fecha Ingreso UEGO"
+                label="Ingreso UEGO"
                 type="date"
                 value={formData.fechaIngresoUego}
                 onChange={(e) => handleChange('fechaIngresoUego', e.target.value)}
               />
               <Input
-                label="Fecha Derivación Dupla"
+                label="Derivación dupla"
                 type="date"
                 value={formData.fechaDerivacionDupla}
                 onChange={(e) => handleChange('fechaDerivacionDupla', e.target.value)}
               />
               <Input
-                label="Fecha Máx. Contacto"
+                label="Máx. contacto"
                 type="date"
                 value={formData.fechaMaximaContactoInicial}
                 onChange={(e) => handleChange('fechaMaximaContactoInicial', e.target.value)}
               />
               <Input
-                label="Fecha Egreso"
+                label="Egreso"
                 type="date"
                 value={formData.fechaEgreso}
                 onChange={(e) => handleChange('fechaEgreso', e.target.value)}
               />
             </div>
-          </div>
+          </fieldset>
 
-          {/* Section 5: Enfoque Psicosocial */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-text border-b border-border pb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary" /> Enfoque Psicosocial & Entregas
-            </h3>
+          {/* Psicosocial */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Enfoque psicosocial y entregas</legend>
+            <SectionTitle>Enfoque psicosocial y entregas</SectionTitle>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Migrante</label>
-                <select
-                  value={formData.migrante}
-                  onChange={(e) => handleChange('migrante', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="No">No</option>
-                  <option value="Sí">Sí</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Pueblo Originario</label>
-                <select
-                  value={formData.puebloOriginario}
-                  onChange={(e) => handleChange('puebloOriginario', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="No">No</option>
-                  <option value="Mapuche">Mapuche</option>
-                  <option value="Aymara">Aymara</option>
-                  <option value="Rapa Nui">Rapa Nui</option>
-                  <option value="Otro">Otro</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Entrega Recuerdo</label>
-                <select
-                  value={formData.entregaRecuerdo}
-                  onChange={(e) => handleChange('entregaRecuerdo', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Entrega Díptico</label>
-                <select
-                  value={formData.entregaDiptico}
-                  onChange={(e) => handleChange('entregaDiptico', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Acomp. Atención Cerrada</label>
-                <select
-                  value={formData.acompanamientoAtencionCerrada}
-                  onChange={(e) => handleChange('acompanamientoAtencionCerrada', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-text-muted uppercase text-[10px]">Control Ambulatorio</label>
-                <select
-                  value={formData.controlAmbulatorioPsicosocial}
-                  onChange={(e) => handleChange('controlAmbulatorioPsicosocial', e.target.value as any)}
-                  className="bg-surface border border-border rounded-[var(--radius-sm)] py-2 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
+              <SelectField
+                id={`${duplaFieldId}-migrante`}
+                label="Migrante"
+                value={formData.migrante}
+                onChange={(v) => handleChange('migrante', v)}
+                options={['No', 'Sí']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-pueblo`}
+                label="Pueblo originario"
+                value={formData.puebloOriginario}
+                onChange={(v) => handleChange('puebloOriginario', v)}
+                options={['No', 'Mapuche', 'Aymara', 'Rapa Nui', 'Otro']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-recuerdo`}
+                label="Entrega recuerdo"
+                value={formData.entregaRecuerdo}
+                onChange={(v) => handleChange('entregaRecuerdo', v)}
+                options={['Sí', 'No']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-diptico`}
+                label="Entrega díptico"
+                value={formData.entregaDiptico}
+                onChange={(v) => handleChange('entregaDiptico', v)}
+                options={['Sí', 'No']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-acompanamiento`}
+                label="Acomp. atención cerrada"
+                value={formData.acompanamientoAtencionCerrada}
+                onChange={(v) => handleChange('acompanamientoAtencionCerrada', v)}
+                options={['Sí', 'No']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-control`}
+                label="Control ambulatorio"
+                value={formData.controlAmbulatorioPsicosocial}
+                onChange={(v) => handleChange('controlAmbulatorioPsicosocial', v)}
+                options={['Sí', 'No']}
+              />
             </div>
-          </div>
+          </fieldset>
+        </div>
 
-          {/* Footer Buttons */}
-          <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
-            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSaving}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              isLoading={isSaving}
-              leftIcon={<Save className="w-4 h-4" />}
-            >
-              {isEditing ? 'Guardar Cambios' : 'Registrar Paciente'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <CardFooter className="justify-end gap-3 rounded-b-[var(--radius-lg)]">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            isLoading={isSaving}
+            loadingLabel={isEditing ? 'Guardando cambios' : 'Registrando paciente'}
+            leftIcon={!isSaving ? <Save className="w-3.5 h-3.5" /> : undefined}
+          >
+            {isEditing ? 'Guardar cambios' : 'Registrar paciente'}
+          </Button>
+        </CardFooter>
+      </form>
+    </Modal>
   );
 };
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <h3 className="text-sm font-semibold text-text border-b border-border pb-2 flex items-center gap-2">
+    <span className="w-2 h-2 rounded-[var(--radius-full)] bg-primary" aria-hidden="true" />
+    {children}
+  </h3>
+);
+
+interface SelectFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  emptyHint?: string;
+}
+
+const SelectField: React.FC<SelectFieldProps> = ({ id, label, value, onChange, options, emptyHint }) => (
+  <div className="flex flex-col gap-1.5">
+    <label htmlFor={id} className="text-xs font-semibold text-text-muted uppercase">
+      {label}
+    </label>
+    <div className="relative">
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm focus:border-primary transition-colors appearance-none cursor-pointer"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+        aria-hidden="true"
+      />
+    </div>
+    {emptyHint && options.length <= 1 && (
+      <p className="text-[13px] text-text-muted">{emptyHint}</p>
+    )}
+  </div>
+);

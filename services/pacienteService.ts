@@ -2,20 +2,33 @@ import { supabase } from '@/lib/supabase/client';
 import { RegistroPaciente } from '@/types/paciente';
 import { MOCK_PACIENTES } from '@/lib/mock-data/pacientes';
 
+export interface PacientesResult {
+  data: RegistroPaciente[];
+  /** 'demo' = datos de ejemplo en memoria, no registros clinicos reales. */
+  source: 'database' | 'demo';
+  error?: string;
+}
+
 export const pacienteService = {
-  async getAll(): Promise<RegistroPaciente[]> {
+  async getAll(): Promise<PacientesResult> {
     try {
       const { data, error } = await supabase
         .from('pacientes_seguimiento')
         .select('*')
         .order('numero', { ascending: true });
 
-      if (error || !data || data.length === 0) {
-        console.warn('Supabase query error or empty, using local mock data fallback:', error);
-        return MOCK_PACIENTES;
+      if (error) {
+        console.warn('Supabase query error, using local demo data fallback:', error);
+        return { data: MOCK_PACIENTES, source: 'demo', error: error.message };
       }
 
-      return data.map((row: any) => ({
+      if (!data) {
+        return { data: [], source: 'database' };
+      }
+
+      return {
+        source: 'database',
+        data: data.map((row: any) => ({
         id: row.id,
         numero: row.numero,
         duplaACargo: row.dupla_a_cargo || 'Sin dupla asignada',
@@ -54,10 +67,15 @@ export const pacienteService = {
         atencion10: row.atencion_10 || '',
         totalAtenciones: row.total_atenciones || 0,
         observacionAtenciones: row.observacion_atenciones || '',
-      }));
+      })),
+      };
     } catch (err) {
       console.error('Error fetching patients from Supabase:', err);
-      return MOCK_PACIENTES;
+      return {
+        data: MOCK_PACIENTES,
+        source: 'demo',
+        error: err instanceof Error ? err.message : 'No fue posible conectar con la base de datos.',
+      };
     }
   },
 
