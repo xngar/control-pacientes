@@ -427,24 +427,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
             <legend className="sr-only">Fechas de ingreso y derivación</legend>
             <SectionTitle>Fechas de ingreso y derivación</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <Input
-                label="Ingreso UEGO"
-                type="date"
-                value={formData.fechaIngresoUego}
-                onChange={(e) => handleChange('fechaIngresoUego', e.target.value)}
-              />
+              {/* El orden va de lo más reciente a lo más reciente dentro del recorrido
+                  clínico: derivación, egreso, contacto y, al final, el ingreso que
+                  origina toda la cadena de fechas. */}
               <Input
                 label="Derivación dupla"
                 type="date"
                 value={formData.fechaDerivacionDupla}
                 onChange={(e) => handleChange('fechaDerivacionDupla', e.target.value)}
-              />
-              <Input
-                label="Máx. contacto"
-                type="date"
-                readOnly
-                value={formData.fechaMaximaContactoInicial}
-                hint={`Se calcula sola: egreso + ${DIAS_EGRESO_A_CONTACTO} días.`}
               />
               <Input
                 label="Egreso"
@@ -456,6 +446,19 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                     ? `Editado a mano. El ingreso por defecto daba ${sumarDias(formData.fechaIngresoUego, DIAS_INGRESO_A_EGRESO) || '—'}.`
                     : `Ingreso a UEGO + ${DIAS_INGRESO_A_EGRESO} días. Puedes ajustarlo si el paciente se queda más tiempo.`
                 }
+              />
+              <Input
+                label="Máx. contacto"
+                type="date"
+                readOnly
+                value={formData.fechaMaximaContactoInicial}
+                hint={`Se calcula sola: egreso + ${DIAS_EGRESO_A_CONTACTO} días.`}
+              />
+              <Input
+                label="Ingreso UEGO"
+                type="date"
+                value={formData.fechaIngresoUego}
+                onChange={(e) => handleChange('fechaIngresoUego', e.target.value)}
               />
             </div>
           </fieldset>
