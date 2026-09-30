@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/lib/auth/auth-context';
 import { notificar } from '@/lib/notifications';
 import { Badge } from '@/components/ui/Badge';
@@ -117,14 +116,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <UserCog className="w-3.5 h-3.5" aria-hidden="true" />
                   Mi perfil
                 </button>
-                <Link
-                  href={isAdmin ? '/admin' : '/clinico'}
-                  role="menuitem"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-[13px] text-text-muted rounded-[var(--radius-xs)] hover:bg-surface-muted hover:text-text"
-                >
-                  Ir a mi panel
-                </Link>
                 <button
                   role="menuitem"
                   onClick={async () => {

@@ -12,12 +12,7 @@ import {
   UserCog,
   Users2,
   UserCheck,
-  MessageSquare,
-  HeartPulse,
-  FileText,
   Settings,
-  ShieldCheck,
-  HelpCircle,
   LayoutDashboard,
   type LucideIcon,
 } from 'lucide-react';
@@ -70,9 +65,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'Herramientas',
       items: [
         { label: 'Duplas a cargo', icon: Users2, action: 'duplas' },
-        { label: 'Alertas y mensajes', icon: MessageSquare },
-        { label: 'Registro atenciones', icon: HeartPulse },
-        { label: 'Fichas clínicas', icon: FileText },
       ],
     },
     {
@@ -80,8 +72,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         ...(isAdmin ? [{ label: 'Usuarios', icon: UserCog, action: 'usuarios' as MenuAction }] : []),
         { label: 'Ajustes', icon: Settings },
-        { label: 'Seguridad y RLS', icon: ShieldCheck },
-        { label: 'Centro de ayuda', icon: HelpCircle },
       ],
     },
   ];
