@@ -44,6 +44,41 @@ const getEstadoVariant = (estado: string) => {
   return 'info' as const;
 };
 
+/**
+ * Título de columna.
+ *
+ * Con 37 columnas el ancho lo impone el contenido, así que los títulos largos
+ * se parten en varias líneas y la fila del encabezado crece hasta duplicar su
+ * altura. `line-clamp-2` los limita a dos líneas sin `truncate`: el texto se
+ * sigue leyendo completo en dos renglones en vez de quedar en una sola línea
+ * con puntos suspensivos. El `min-w` da el ancho necesario para que dos
+ * líneas alcancen, y el `title` deja el texto íntegro al pasar el mouse por si
+ * alguna columna quedara apretada.
+ *
+ * El clamp va en un `<span>` y no en el `<th>` porque `line-clamp` cambia el
+ * `display` a `-webkit-box`, lo que rompería el layout de tabla.
+ */
+const Th = ({
+  children,
+  className = '',
+  center = false,
+  ancho,
+}: {
+  children: string;
+  className?: string;
+  center?: boolean;
+  ancho?: string;
+}) => (
+  <th
+    scope="col"
+    className={`px-3 py-2 align-middle ${center ? 'text-center' : ''} ${ancho ?? ''} ${className}`}
+  >
+    <span className={`line-clamp-2 leading-tight ${center ? 'text-center' : ''}`} title={children}>
+      {children}
+    </span>
+  </th>
+);
+
 const SíNo = ({ value }: { value: string }) => {
   const esSi = value === 'Sí';
   return (
@@ -530,44 +565,66 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                 Registro clínico de pacientes con estado, dupla a cargo, diagnóstico y atenciones
               </caption>
               <thead>
-                {/* whitespace-nowrap + truncate en las celdas: con 37 columnas el
-                    ancho lo impone el contenido, y sin esto las celdas de texto
-                    largo parten en varias lineas y duplican la altura de la fila. */}
+                {/* Cada título se parte en máximo 2 líneas (ver `Th`), así que la fila
+                    del encabezado tiene una altura acotada por muy larga que sea la
+                    columna. */}
                 <tr className="bg-surface-muted border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
-                  <th scope="col" className="py-3 px-4 sticky left-0 bg-surface-muted z-20">Acciones</th>
-                  <th scope="col" className="py-3 px-3 sticky left-20 bg-surface-muted z-20">N°</th>
-                  <th scope="col" className="py-3 px-4 sticky left-32 bg-surface-muted z-20 border-r border-border">
+                  <Th className="sticky left-0 bg-surface-muted z-20 px-4">Acciones</Th>
+                  <Th className="sticky left-20 bg-surface-muted z-20" center>
+                    N°
+                  </Th>
+                  <Th className="sticky left-32 bg-surface-muted z-20 border-r border-border px-4" ancho="min-w-[132px]">
                     Nombre paciente
-                  </th>
-                  <th scope="col" className="py-3 px-4">RUT</th>
-                  <th scope="col" className="py-3 px-4">Estado</th>
-                  <th scope="col" className="py-3 px-5">Dupla a cargo</th>
-                  <th scope="col" className="py-3 px-4">Fecha derivación</th>
-                  <th scope="col" className="py-3 px-4">Fecha egreso</th>
-                  <th scope="col" className="py-3 px-4">Fecha máx. contacto</th>
-                  <th scope="col" className="py-3 px-4">Fecha ingreso UEGO</th>
-                  <th scope="col" className="py-3 px-6 max-w-[200px] truncate">Observaciones ingreso</th>
-                  <th scope="col" className="py-3 px-3">Edad</th>
-                  <th scope="col" className="py-3 px-3">EG</th>
-                  <th scope="col" className="py-3 px-4">Tipología</th>
-                  <th scope="col" className="py-3 px-6 max-w-[220px] truncate">Diagnóstico</th>
-                  <th scope="col" className="py-3 px-6 max-w-[200px] truncate">Obs. diagnóstico</th>
-                  <th scope="col" className="py-3 px-4">Ingreso fin semana / UEGO</th>
-                  <th scope="col" className="py-3 px-4">Teléfono</th>
-                  <th scope="col" className="py-3 px-6 max-w-[180px] truncate">Obs. contacto</th>
-                  <th scope="col" className="py-3 px-3 text-center">Migrante</th>
-                  <th scope="col" className="py-3 px-4 text-center">Pueblo originario</th>
-                  <th scope="col" className="py-3 px-3 text-center">Entrega recuerdo</th>
-                  <th scope="col" className="py-3 px-3 text-center">Díptico inf.</th>
-                  <th scope="col" className="py-3 px-4 text-center">Acomp. cerrada</th>
-                  <th scope="col" className="py-3 px-4 text-center">Control ambulatorio</th>
+                  </Th>
+                  <Th>RUT</Th>
+                  <Th>Estado</Th>
+                  <Th ancho="min-w-[104px]">Dupla a cargo</Th>
+                  <Th ancho="min-w-[104px]">Fecha derivación</Th>
+                  <Th ancho="min-w-[104px]">Fecha egreso</Th>
+                  <Th ancho="min-w-[104px]">Fecha máx. contacto</Th>
+                  <Th ancho="min-w-[112px]">Fecha ingreso UEGO</Th>
+                  <Th className="max-w-[200px]" ancho="min-w-[132px]">
+                    Observaciones ingreso
+                  </Th>
+                  <Th center>Edad</Th>
+                  <Th center>EG</Th>
+                  <Th>Tipología</Th>
+                  <Th className="max-w-[220px]" ancho="min-w-[132px]">
+                    Diagnóstico
+                  </Th>
+                  <Th className="max-w-[200px]" ancho="min-w-[132px]">
+                    Obs. diagnóstico
+                  </Th>
+                  <Th ancho="min-w-[148px]">Ingreso fin semana / UEGO</Th>
+                  <Th>Teléfono</Th>
+                  <Th className="max-w-[180px]" ancho="min-w-[112px]">
+                    Obs. contacto
+                  </Th>
+                  <Th center>Migrante</Th>
+                  <Th className="px-4" center ancho="min-w-[112px]">
+                    Pueblo originario
+                  </Th>
+                  <Th center ancho="min-w-[112px]">
+                    Entrega recuerdo
+                  </Th>
+                  <Th center>Díptico inf.</Th>
+                  <Th className="px-4" center ancho="min-w-[104px]">
+                    Acomp. cerrada
+                  </Th>
+                  <Th className="px-4" center ancho="min-w-[112px]">
+                    Control ambulatorio
+                  </Th>
                   {Array.from({ length: 10 }, (_, i) => (
-                    <th scope="col" key={i} className="py-3 px-4">
-                      Atención {i + 1}
-                    </th>
+                    <Th key={i} ancho="min-w-[88px]">
+                      {`Atención ${i + 1}`}
+                    </Th>
                   ))}
-                  <th scope="col" className="py-3 px-4 text-center">Total atenciones</th>
-                  <th scope="col" className="py-3 px-6 max-w-[240px] truncate">Obs. atenciones</th>
+                  <Th className="px-4" center ancho="min-w-[104px]">
+                    Total atenciones
+                  </Th>
+                  <Th className="max-w-[240px]" ancho="min-w-[112px]">
+                    Obs. atenciones
+                  </Th>
                 </tr>
               </thead>
               <tbody>
