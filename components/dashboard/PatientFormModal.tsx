@@ -5,6 +5,11 @@ import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
 import { notificar } from '@/lib/notifications';
 import { formatearRut } from '@/lib/utils/rut';
+import {
+  sumarDias,
+  DIAS_INGRESO_A_EGRESO,
+  DIAS_EGRESO_A_CONTACTO,
+} from '@/lib/fechas';
 import { duplaService } from '@/services/duplaService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -48,6 +53,27 @@ const ATENCIONES: { key: CampoAtencion; label: string }[] = Array.from({ length:
 /** El total cuenta los casilleros de atención con comentario; los vacíos no cuentan. */
 const contarAtenciones = (data: { [K in CampoAtencion]: string }): number =>
   ATENCIONES.filter(({ key }) => data[key]?.trim()).length;
+
+/**
+ * Aplica la regla de fechas de la ficha: el egreso se deriva del ingreso a
+ * UEGO y el máximo de contacto inicial del egreso.
+ * `egresoManual` permite que quien edita una ficha corrija el egreso a mano
+ * (por ejemplo, si el paciente se quedó más de 15 días) sin que el siguiente
+ * ingreso vuelva a pisarlo.
+ */
+function derivarFechas(
+  data: { fechaIngresoUego: string; fechaEgreso: string; fechaMaximaContactoInicial: string },
+  opciones: { recalcularEgreso: boolean }
+) {
+  const egreso = opciones.recalcularEgreso
+    ? sumarDias(data.fechaIngresoUego, DIAS_INGRESO_A_EGRESO)
+    : data.fechaEgreso;
+
+  return {
+    fechaEgreso: egreso,
+    fechaMaximaContactoInicial: sumarDias(egreso, DIAS_EGRESO_A_CONTACTO),
+  };
+}
 
 const DEFAULT_PACIENTE: Omit<RegistroPaciente, 'id' | 'numero'> = {
   duplaACargo: SIN_DUPLA,
@@ -107,6 +133,11 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     tipologia: string | null;
     diagnostico: string | null;
   }>({ tipologia: null, diagnostico: null });
+  /**
+   * `true` cuando el egreso de la ficha abierta seMSE a mano y por eso manda
+   * sobre el cálculo automático. Se reinicia al cambiar de ficha.
+   */
+  const [egresoManual, setEgresoManual] = useState(false);
 
   if (isOpen && formKey !== syncedKey) {
     setSyncedKey(formKey);
@@ -129,11 +160,16 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         tipologia: TIPOLOGIAS.includes(rest.tipologia) ? rest.tipologia : '',
         diagnostico: DIAGNOSTICOS.includes(rest.diagnostico) ? rest.diagnostico : '',
         totalAtenciones: contarAtenciones(rest),
+        // Fichas viejas pueden venir con fechas que no siguen la regla (egreso
+        // manual, o máximo de contacto anterior al egreso). Al abrir se recalcula
+        // para no editar sobre un dato que ya no es real.
+        ...derivarFechas(rest, { recalcularEgreso: true }),
       });
     } else {
       setFueraDeCatalogo({ tipologia: null, diagnostico: null });
-      setFormData(DEFAULT_PACIENTE);
+      setFormData({ ...DEFAULT_PACIENTE, ...derivarFechas(DEFAULT_PACIENTE, { recalcularEgreso: true }) });
     }
+    setEgresoManual(false);
   }
 
   useEffect(() => {
@@ -156,12 +192,23 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       // El total es derivado, nunca escrito a mano: los casilleros de atención son
-      // la fuente de verdad, así la tabla nunca muestra un número descuadrado.
+      // la fuente de verdad, así que la tabla nunca muestra un número descuadrado.
       if (field.startsWith('atencion')) {
         next.totalAtenciones = contarAtenciones(next as { [K in CampoAtencion]: string });
       }
+      // El ingreso manda sobre el egreso: cambiarlo mueve el egreso y el máximo
+      // de contacto, salvo que el egreso se haya corregido a mano.
+      if (field === 'fechaIngresoUego' && !egresoManual) {
+        Object.assign(next, derivarFechas(next, { recalcularEgreso: true }));
+      }
+      // El máximo de contacto siempre es egreso + 15 días, incluso si se tocó
+      // el egreso a mano; por eso no tiene onChange propio.
+      if (field === 'fechaEgreso') {
+        Object.assign(next, derivarFechas(next, { recalcularEgreso: false }));
+      }
       return next;
     });
+    if (field === 'fechaEgreso' && String(value) !== formData.fechaEgreso) setEgresoManual(true);
     // El aviso se levanta al elegir una opción real del catálogo, no con cualquier
     // cambio: el campo queda en blanco hasta que se elige, y vacío tampoco es válido.
     if (field === 'tipologia' && TIPOLOGIAS.includes(String(value))) {
@@ -395,14 +442,20 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
               <Input
                 label="Máx. contacto"
                 type="date"
+                readOnly
                 value={formData.fechaMaximaContactoInicial}
-                onChange={(e) => handleChange('fechaMaximaContactoInicial', e.target.value)}
+                hint={`Se calcula sola: egreso + ${DIAS_EGRESO_A_CONTACTO} días.`}
               />
               <Input
                 label="Egreso"
                 type="date"
                 value={formData.fechaEgreso}
                 onChange={(e) => handleChange('fechaEgreso', e.target.value)}
+                hint={
+                  egresoManual
+                    ? `Editado a mano. El ingreso por defecto daba ${sumarDias(formData.fechaIngresoUego, DIAS_INGRESO_A_EGRESO) || '—'}.`
+                    : `Ingreso a UEGO + ${DIAS_INGRESO_A_EGRESO} días. Puedes ajustarlo si el paciente se queda más tiempo.`
+                }
               />
             </div>
           </fieldset>

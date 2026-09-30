@@ -37,3 +37,27 @@ export const diasHasta = (fecha?: string | null, hoy: string = hoyISO()): number
   if (Number.isNaN(destino) || Number.isNaN(base)) return null;
   return Math.round((destino - base) / MS_POR_DIA);
 };
+
+/**
+ * Suma dias a una fecha ISO y devuelve otra fecha ISO.
+ * Se trabaja en UTC a proposito: sumar dias sobre texto "YYYY-MM-DD" no tiene
+ * zona horaria, y construirla en hora local haria que un cambio de dia (o de
+ * horario de verano) moviera la fecha un dia de mas.
+ * Devuelve cadena vacia si la fecha no es ISO, para no inventar un dia.
+ */
+export const sumarDias = (fecha: string | null | undefined, dias: number): string => {
+  const iso = normalizeFecha(fecha);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const base = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(base.getTime())) return '';
+  base.setUTCDate(base.getUTCDate() + dias);
+  return base.toISOString().slice(0, 10);
+};
+
+/**
+ * Regla de fechas de la ficha clinica:
+ * el egreso es 15 dias despues del ingreso a UEGO, y el maximo de contacto
+ * inicial es 15 dias despues del egreso.
+ */
+export const DIAS_INGRESO_A_EGRESO = 15;
+export const DIAS_EGRESO_A_CONTACTO = 15;
