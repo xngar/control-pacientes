@@ -21,6 +21,17 @@ interface PatientFormModalProps {
 
 const SIN_DUPLA = 'Sin dupla asignada';
 
+type CampoAtencion = 'atencion1' | 'atencion2' | 'atencion3' | 'atencion4' | 'atencion5' | 'atencion6' | 'atencion7' | 'atencion8' | 'atencion9' | 'atencion10';
+
+const ATENCIONES: { key: CampoAtencion; label: string }[] = Array.from({ length: 10 }, (_, i) => ({
+  key: `atencion${i + 1}` as CampoAtencion,
+  label: `Atención ${i + 1}`,
+}));
+
+/** El total cuenta los casilleros de atención con comentario; los vacíos no cuentan. */
+const contarAtenciones = (data: { [K in CampoAtencion]: string }): number =>
+  ATENCIONES.filter(({ key }) => data[key]?.trim()).length;
+
 const DEFAULT_PACIENTE: Omit<RegistroPaciente, 'id' | 'numero'> = {
   duplaACargo: SIN_DUPLA,
   estado: 'Activo',
@@ -80,7 +91,9 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
     setError(null);
     if (pacienteToEdit) {
       const { id, numero, ...rest } = pacienteToEdit;
-      setFormData(rest);
+      // Fichas antiguas pueden traer un total que no cuadra con sus casilleros.
+      // Al abrir se recalcula para no editar sobre un número que ya no es real.
+      setFormData({ ...rest, totalAtenciones: contarAtenciones(rest) });
     } else {
       setFormData(DEFAULT_PACIENTE);
     }
@@ -103,7 +116,15 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
   if (!isOpen) return null;
 
   const handleChange = (field: keyof typeof formData, value: string | number) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      // El total es derivado, nunca escrito a mano: los casilleros de atención son
+      // la fuente de verdad, así la tabla nunca muestra un número descuadrado.
+      if (field.startsWith('atencion')) {
+        next.totalAtenciones = contarAtenciones(next as { [K in CampoAtencion]: string });
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,6 +341,46 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
             </div>
           </fieldset>
 
+          {/* Atenciones */}
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Registro de atenciones</legend>
+            <SectionTitle>Registro de atenciones</SectionTitle>
+            <p className="text-[13px] text-text-muted -mt-1">
+              Deja vacío el casillero de las atenciones que no se realizaron.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {ATENCIONES.map(({ key, label }) => (
+                <Input
+                  key={key}
+                  label={label}
+                  placeholder="Comentario"
+                  value={formData[key]}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input
+                label="Total atenciones"
+                type="number"
+                min={0}
+                max={10}
+                readOnly
+                value={formData.totalAtenciones}
+                hint={`Se cuenta solo: ${contarAtenciones(formData)} de ${ATENCIONES.length} casillas con comentario`}
+                className="bg-surface-muted font-bold text-primary-text tnum"
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="Observación de atenciones"
+                  placeholder="Notas sobre el seguimiento de las atenciones..."
+                  value={formData.observacionAtenciones}
+                  onChange={(e) => handleChange('observacionAtenciones', e.target.value)}
+                />
+              </div>
+            </div>
+          </fieldset>
+
           {/* Psicosocial */}
           <fieldset className="space-y-4">
             <legend className="sr-only">Enfoque psicosocial y entregas</legend>
@@ -366,6 +427,27 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 value={formData.controlAmbulatorioPsicosocial}
                 onChange={(v) => handleChange('controlAmbulatorioPsicosocial', v)}
                 options={['Sí', 'No']}
+              />
+              <SelectField
+                id={`${duplaFieldId}-horario`}
+                label="Ingreso horario especial"
+                value={formData.ingresoHorarioEspecial}
+                onChange={(v) => handleChange('ingresoHorarioEspecial', v)}
+                options={['No', 'Sí']}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <Input
+                label="Observaciones del ingreso"
+                placeholder="Circunstancias del ingreso, motivos, derivación..."
+                value={formData.observacionesIngreso}
+                onChange={(e) => handleChange('observacionesIngreso', e.target.value)}
+              />
+              <Input
+                label="Observaciones de contacto"
+                placeholder="Intentos de contacto, horarios, respuestas..."
+                value={formData.observacionesContacto}
+                onChange={(e) => handleChange('observacionesContacto', e.target.value)}
               />
             </div>
           </fieldset>
