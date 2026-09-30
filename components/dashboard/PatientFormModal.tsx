@@ -21,6 +21,22 @@ interface PatientFormModalProps {
 
 const SIN_DUPLA = 'Sin dupla asignada';
 
+/** Catálogos cerrados de la ficha clínica. */
+const TIPOLOGIAS = ['Mayor de 22', 'Menor de 22'];
+
+const DIAGNOSTICOS = [
+  'Aborto Incompleto',
+  'Aborto Espontáneo',
+  'Embarazo Ectópico',
+  'Aborto Retenido',
+  'Óbito Fetal',
+  'Aborto en Evolución',
+  'Embarazo Gemelar Monocorial Biamniótico',
+  'Embarazo Ectópico V/S Aborto Tubario',
+  'Mortinato',
+  'Embarazo Ectópico en CCA',
+];
+
 type CampoAtencion = 'atencion1' | 'atencion2' | 'atencion3' | 'atencion4' | 'atencion5' | 'atencion6' | 'atencion7' | 'atencion8' | 'atencion9' | 'atencion10';
 
 const ATENCIONES: { key: CampoAtencion; label: string }[] = Array.from({ length: 10 }, (_, i) => ({
@@ -44,7 +60,7 @@ const DEFAULT_PACIENTE: Omit<RegistroPaciente, 'id' | 'numero'> = {
   rut: '',
   edad: 18,
   eg: 'N/A',
-  tipologia: 'Salud Mental General',
+  tipologia: '',
   diagnostico: '',
   observacionesDiagnostico: '',
   ingresoHorarioEspecial: 'No',
@@ -85,6 +101,11 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
   const isEditing = !!pacienteToEdit?.id;
   const formKey = isOpen ? (pacienteToEdit?.id ?? 'new') : null;
   const [syncedKey, setSyncedKey] = useState<string | null>(null);
+  /** Valores de una ficha previa que ya no están en los catálogos actuales. */
+  const [fueraDeCatalogo, setFueraDeCatalogo] = useState<{
+    tipologia: string | null;
+    diagnostico: string | null;
+  }>({ tipologia: null, diagnostico: null });
 
   if (isOpen && formKey !== syncedKey) {
     setSyncedKey(formKey);
@@ -93,8 +114,23 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       const { id, numero, ...rest } = pacienteToEdit;
       // Fichas antiguas pueden traer un total que no cuadra con sus casilleros.
       // Al abrir se recalcula para no editar sobre un número que ya no es real.
-      setFormData({ ...rest, totalAtenciones: contarAtenciones(rest) });
+      //
+      // Un valor fuera del catálogo no puede quedarse en el estado: el `<select>`
+      // lo muestra en blanco pero su `.value` pasa a la primera opción, así que la
+      // pantalla y el estado discreparían y se guardaría el dato viejo creyendo
+      // que se cambió. Se vacía de verdad y se recuerda para avisarle.
+      setFueraDeCatalogo({
+        tipologia: TIPOLOGIAS.includes(rest.tipologia) ? null : rest.tipologia,
+        diagnostico: DIAGNOSTICOS.includes(rest.diagnostico) ? null : rest.diagnostico,
+      });
+      setFormData({
+        ...rest,
+        tipologia: TIPOLOGIAS.includes(rest.tipologia) ? rest.tipologia : '',
+        diagnostico: DIAGNOSTICOS.includes(rest.diagnostico) ? rest.diagnostico : '',
+        totalAtenciones: contarAtenciones(rest),
+      });
     } else {
+      setFueraDeCatalogo({ tipologia: null, diagnostico: null });
       setFormData(DEFAULT_PACIENTE);
     }
   }
@@ -125,6 +161,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       }
       return next;
     });
+    // El aviso se levanta al elegir una opción real del catálogo, no con cualquier
+    // cambio: el campo queda en blanco hasta que se elige, y vacío tampoco es válido.
+    if (field === 'tipologia' && TIPOLOGIAS.includes(String(value))) {
+      setFueraDeCatalogo((prev) => ({ ...prev, tipologia: null }));
+    }
+    if (field === 'diagnostico' && DIAGNOSTICOS.includes(String(value))) {
+      setFueraDeCatalogo((prev) => ({ ...prev, diagnostico: null }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,6 +177,10 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
 
     if (!formData.nombre.trim() || !formData.rut.trim() || !formData.diagnostico.trim()) {
       setError('Completa al menos el nombre, el RUT y el diagnóstico.');
+      return;
+    }
+    if (!formData.tipologia.trim()) {
+      setError('Selecciona la tipología del paciente.');
       return;
     }
 
@@ -285,18 +333,33 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
             <legend className="sr-only">Diagnóstico y tipología</legend>
             <SectionTitle>Diagnóstico y tipología</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
+              <SelectField
+                id="paciente-tipologia"
                 label="Tipología"
-                placeholder="Ej: Salud Mental Infanto-Juvenil"
                 value={formData.tipologia}
-                onChange={(e) => handleChange('tipologia', e.target.value)}
-              />
-              <Input
-                label="Diagnóstico principal"
-                placeholder="Ej: Trastorno del Espectro Autista (TEA)"
-                value={formData.diagnostico}
-                onChange={(e) => handleChange('diagnostico', e.target.value)}
+                onChange={(valor) => handleChange('tipologia', valor)}
+                options={TIPOLOGIAS}
+                placeholder="Selecciona una tipología"
                 required
+                warning={
+                  fueraDeCatalogo.tipologia
+                    ? `La ficha guardaba "${fueraDeCatalogo.tipologia}". Elige una tipología del catálogo para reemplazarlo.`
+                    : undefined
+                }
+              />
+              <SelectField
+                id="paciente-diagnostico"
+                label="Diagnóstico principal"
+                value={formData.diagnostico}
+                onChange={(valor) => handleChange('diagnostico', valor)}
+                options={DIAGNOSTICOS}
+                placeholder="Selecciona un diagnóstico"
+                required
+                warning={
+                  fueraDeCatalogo.diagnostico
+                    ? `La ficha guardaba "${fueraDeCatalogo.diagnostico}". Elige un diagnóstico del catálogo para reemplazarlo.`
+                    : undefined
+                }
               />
               <div className="sm:col-span-2">
                 <Input
@@ -487,20 +550,40 @@ interface SelectFieldProps {
   onChange: (value: string) => void;
   options: string[];
   emptyHint?: string;
+  placeholder?: string;
+  required?: boolean;
+  warning?: string;
 }
 
-const SelectField: React.FC<SelectFieldProps> = ({ id, label, value, onChange, options, emptyHint }) => (
+const SelectField: React.FC<SelectFieldProps> = ({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  emptyHint,
+  placeholder,
+  required,
+  warning,
+}) => (
   <div className="flex flex-col gap-1.5">
     <label htmlFor={id} className="text-xs font-semibold text-text-muted uppercase">
       {label}
+      {required && <span className="text-error-text"> *</span>}
     </label>
     <div className="relative">
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        required={required}
         className="w-full bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm focus:border-primary transition-colors appearance-none cursor-pointer"
       >
+        {placeholder && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
@@ -512,6 +595,12 @@ const SelectField: React.FC<SelectFieldProps> = ({ id, label, value, onChange, o
         aria-hidden="true"
       />
     </div>
+    {warning && (
+      <p className="text-[13px] text-warning-text flex items-center gap-1.5">
+        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        {warning}
+      </p>
+    )}
     {emptyHint && options.length <= 1 && (
       <p className="text-[13px] text-text-muted">{emptyHint}</p>
     )}
