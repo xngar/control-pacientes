@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
 import { notificar } from '@/lib/notifications';
+import { exportPacientesToExcel } from '@/lib/export/exportExcel';
 import { usePacientes, type UsePacientesResult } from '@/lib/hooks/usePacientes';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -23,6 +24,8 @@ import {
   ChevronDown,
   RefreshCw,
   UserCheck,
+  CalendarDays,
+  X,
 } from 'lucide-react';
 
 interface PatientTableProps {
@@ -32,6 +35,17 @@ interface PatientTableProps {
 }
 
 const ESTADOS = ['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado'];
+
+/**
+ * La columna FECHA MAX CONTACTO guarda fechas ISO (YYYY-MM-DD), pero algunos
+ * registros arrastran formato libre desde planillas. Normalizar deja comparar
+ * contra lo que entrega <input type="date"> sin depender de como se escribió.
+ */
+const normalizeFecha = (valor?: string | null): string => {
+  const texto = (valor ?? '').trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : texto.toLowerCase();
+};
 
 const getEstadoVariant = (estado: string) => {
   if (estado === 'Activo') return 'success' as const;
@@ -61,6 +75,10 @@ export const PatientTable: React.FC<PatientTableProps> = ({
 }) => {
   const [estadoFilter, setEstadoFilter] = useState('Todos');
   const [duplaFilter, setDuplaFilter] = useState('Todas');
+  const [fechaMaxFiltro, setFechaMaxFiltro] = useState('');
+  const [isFechaPopoverOpen, setIsFechaPopoverOpen] = useState(false);
+  const fechaPopoverRef = useRef<HTMLDivElement>(null);
+  const fechaBtnRef = useRef<HTMLButtonElement>(null);
   const [selectedPatient, setSelectedPatient] = useState<RegistroPaciente | null>(null);
   const [patientToEdit, setPatientToEdit] = useState<RegistroPaciente | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -89,6 +107,58 @@ export const PatientTable: React.FC<PatientTableProps> = ({
       return matchesEstado && matchesDupla && matchesQuery;
     });
   }, [data, searchQuery, estadoFilter, duplaFilter]);
+
+  /**
+   * El filtro de fecha no oculta filas: solo las sube. Los registros que tienen
+   * exactamente esa FECHA MAX CONTACTO quedan primero y el resto conserva el
+   * orden original debajo, para no perder de vista el panorama completo.
+   */
+  const ordenados = useMemo(() => {
+    if (!fechaMaxFiltro) return filtered;
+    const objetivo = normalizeFecha(fechaMaxFiltro);
+    const coincide = (p: RegistroPaciente) => normalizeFecha(p.fechaMaximaContactoInicial) === objetivo;
+    const primero: RegistroPaciente[] = [];
+    const resto: RegistroPaciente[] = [];
+    for (const p of filtered) (coincide(p) ? primero : resto).push(p);
+    return [...primero, ...resto];
+  }, [filtered, fechaMaxFiltro]);
+
+  const coincidenciasFecha = useMemo(() => {
+    if (!fechaMaxFiltro) return 0;
+    const objetivo = normalizeFecha(fechaMaxFiltro);
+    return filtered.filter((p) => normalizeFecha(p.fechaMaximaContactoInicial) === objetivo).length;
+  }, [filtered, fechaMaxFiltro]);
+
+  const limpiarFiltros = () => {
+    onSearchChange('');
+    setEstadoFilter('Todos');
+    setDuplaFilter('Todas');
+    setFechaMaxFiltro('');
+  };
+
+  // El calendario vive en un popover propio: cerrar con Escape debe devolver el
+  // foco al botón, si no el teclado queda sin contexto para quien navega con tab.
+  useEffect(() => {
+    if (!isFechaPopoverOpen) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (fechaPopoverRef.current?.contains(target) || fechaBtnRef.current?.contains(target)) return;
+      setIsFechaPopoverOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setIsFechaPopoverOpen(false);
+      fechaBtnRef.current?.focus();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isFechaPopoverOpen]);
 
   const handleSavedPatient = (saved: RegistroPaciente) => {
     if (selectedPatient?.id === saved.id) {
@@ -149,59 +219,22 @@ export const PatientTable: React.FC<PatientTableProps> = ({
       return;
     }
 
-    const headers = [
-      'N°',
-      'Nombre',
-      'RUT',
-      'Estado',
-      'Dupla a Cargo',
-      'Fecha Derivación',
-      'Fecha Egreso',
-      'Fecha Ingreso UEGO',
-      'Edad',
-      'Tipología',
-      'Diagnóstico',
-      'Teléfono',
-      'Total Atenciones',
-    ];
-
-    const rows = filtered.map((p) => [
-      p.numero,
-      p.nombre,
-      p.rut,
-      p.estado,
-      p.duplaACargo,
-      p.fechaDerivacionDupla,
-      p.fechaEgreso,
-      p.fechaIngresoUego,
-      p.edad,
-      p.tipologia,
-      p.diagnostico,
-      p.telefono,
-      p.totalAtenciones,
-    ]);
-
-    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const csv = [
-      headers.map(escape).join(';'),
-      ...rows.map((row) => row.map(escape).join(';')),
-    ].join('\n');
-
-    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pacientes-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    // Se exporta `ordenados` y no `filtered` para que el archivo salga en el
+    // mismo orden que la pantalla, con las coincidencias del filtro de fecha
+    // primero. El exportador cubre las 37 columnas clinicas, no un resumen.
+    exportPacientesToExcel(ordenados);
 
     notificar.exito(
       'Archivo generado',
-      `Se exportaron ${filtered.length} ${filtered.length === 1 ? 'paciente' : 'pacientes'} a CSV.`
+      `Se exportaron ${filtered.length} ${filtered.length === 1 ? 'paciente' : 'pacientes'} a Excel.`
     );
   };
 
-  const hasFilters = searchQuery.trim() !== '' || estadoFilter !== 'Todos' || duplaFilter !== 'Todas';
+  const hasFilters =
+    searchQuery.trim() !== '' ||
+    estadoFilter !== 'Todos' ||
+    duplaFilter !== 'Todas' ||
+    fechaMaxFiltro !== '';
 
   return (
     <section
@@ -230,7 +263,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
               title={
                 filtered.length === 0
                   ? 'No hay registros que coincidan con los filtros actuales'
-                  : `Exportar ${filtered.length} registros a CSV`
+                  : `Exportar ${filtered.length} registros a Excel`
               }
               leftIcon={<Download className="w-3.5 h-3.5" />}
             >
@@ -314,6 +347,116 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 aria-hidden="true"
               />
             </div>
+
+            <div className="relative sm:w-auto flex items-center gap-1">
+              <Button
+                ref={fechaBtnRef}
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFechaPopoverOpen((v) => !v)}
+                aria-expanded={isFechaPopoverOpen}
+                aria-haspopup="dialog"
+                aria-controls="popover-fecha-max-contacto"
+                // El boton conserva siempre su nombre: si la etiqueta cambiara a la fecha, quien
+// navega con lector de pantalla perdería el nombre del filtro activo.
+className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary text-primary' : ''}`}
+                leftIcon={<CalendarDays className="w-3.5 h-3.5" />}
+                rightIcon={<ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />}
+              >
+                Filtro: Fecha máx. contacto
+              </Button>
+
+              {fechaMaxFiltro && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-primary/10 px-2 py-1 text-[13px] font-semibold text-primary-text tnum whitespace-nowrap">
+                    {fechaMaxFiltro}
+                    <span className="font-normal">
+                      ({coincidenciasFecha === 1 ? '1 coincide' : `${coincidenciasFecha} coinciden`})
+                    </span>
+                  </span>
+                  <IconButton
+                    label="Quitar filtro de fecha máxima de contacto"
+                    tone="neutral"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setFechaMaxFiltro('')}
+                  >
+                    <X className="w-4 h-4" />
+                  </IconButton>
+                </>
+              )}
+
+              {isFechaPopoverOpen && (
+                <div
+                  ref={fechaPopoverRef}
+                  id="popover-fecha-max-contacto"
+                  role="dialog"
+                  aria-label="Filtrar por fecha máxima de contacto"
+                  className="absolute right-0 z-30 mt-2 w-[19rem] rounded-[var(--radius-md)] border border-border bg-surface p-4 shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-sm font-bold text-text">Fecha máx. contacto</p>
+                      <p className="text-[13px] text-text-muted mt-0.5">
+                        Sube al inicio los registros que coinciden con esa fecha.
+                      </p>
+                    </div>
+                    <IconButton
+                      label="Cerrar filtro de fecha"
+                      tone="neutral"
+                      size="sm"
+                      onClick={() => {
+                        setIsFechaPopoverOpen(false);
+                        fechaBtnRef.current?.focus();
+                      }}
+                    >
+                      <X className="w-4 h-4" aria-hidden="true" />
+                    </IconButton>
+                  </div>
+
+                  <label htmlFor="filtro-fecha-max-contacto" className="sr-only">
+                    Fecha máxima de contacto
+                  </label>
+                  <input
+                    id="filtro-fecha-max-contacto"
+                    type="date"
+                    value={fechaMaxFiltro}
+                    onChange={(e) => setFechaMaxFiltro(e.target.value)}
+                    className="w-full bg-surface border border-border rounded-[var(--radius-sm)] px-3 py-2.5 text-sm text-text focus:border-primary transition-colors"
+                  />
+
+                  {fechaMaxFiltro && (
+                    <p
+                      className="mt-3 text-[13px] text-text-muted"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {coincidenciasFecha === 0 ? (
+                        'Ningún registro tiene esa fecha; la tabla queda sin reordenar.'
+                      ) : (
+                        <>
+                          <span className="font-semibold text-text tnum">{coincidenciasFecha}</span>{' '}
+                          {coincidenciasFecha === 1
+                            ? 'registro coincide y sube al inicio.'
+                            : 'registros coinciden y suben al inicio.'}
+                        </>
+                      )}
+                    </p>
+                  )}
+
+                  {fechaMaxFiltro && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 w-full"
+                      onClick={() => setFechaMaxFiltro('')}
+                    >
+                      Quitar filtro de fecha
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -369,26 +512,28 @@ export const PatientTable: React.FC<PatientTableProps> = ({
           <p className="text-[13px] text-text-muted mt-1">
             Ningún registro cumple los filtros aplicados.
           </p>
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => {
-                onSearchChange('');
-                setEstadoFilter('Todos');
-                setDuplaFilter('Todas');
-              }}
-            >
-              Limpiar filtros
-            </Button>
-          )}
+{hasFilters && (
+              <Button variant="ghost" size="sm" className="mt-3" onClick={limpiarFiltros}>
+                Limpiar filtros
+              </Button>
+            )}
         </div>
       ) : (
         <>
-          <p className="px-4 py-2 text-[13px] text-text-muted border-b border-border bg-surface-muted">
-            Desplaza la tabla en horizontal para ver las 37 columnas
-          </p>
+<p className="px-4 py-2 text-[13px] text-text-muted border-b border-border bg-surface-muted flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>Desplaza la tabla en horizontal para ver las 37 columnas</span>
+              {fechaMaxFiltro && (
+                <span className="inline-flex items-center gap-1.5 text-primary font-medium">
+                  <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />
+                  Filtro de fecha máx. contacto:{' '}
+                  <span className="tnum font-semibold">{fechaMaxFiltro}</span>
+                  <span role="status" aria-live="polite">
+                    ({coincidenciasFecha}{' '}
+                    {coincidenciasFecha === 1 ? 'coincide' : 'coinciden'})
+                  </span>
+                </span>
+              )}
+            </p>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[3200px]">
               <caption className="sr-only">
@@ -436,10 +581,19 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((paciente) => (
+                {ordenados.map((paciente) => {
+                  // Marca la fila que el filtro de fecha subió, para que el reordenamiento
+                  // se lea como resultado del filtro y no como un cambio de datos.
+                  const enTope = fechaMaxFiltro !== '' && normalizeFecha(paciente.fechaMaximaContactoInicial) === normalizeFecha(fechaMaxFiltro);
+                  return (
                   <tr
                     key={paciente.id}
-                    className="border-b border-border hover:bg-primary/5 transition-colors"
+                    className={`border-b border-border transition-colors ${
+                      // El hover tambien cambia de color: si se dejara el azul de
+                      // siempre, al pasar el mouse la fila volveria a verse normal
+                      // y se perderia la alerta justo cuando se revisa el registro.
+                      enTope ? 'bg-error/10 hover:bg-error/15' : 'hover:bg-primary/5'
+                    }`}
                   >
                     <td className="py-2.5 px-4 sticky left-0 bg-surface z-10">
                       <div className="flex items-center gap-1">
@@ -558,7 +712,8 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                       {paciente.observacionAtenciones || '—'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
