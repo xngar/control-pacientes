@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KpiCards } from './KpiCards';
+import { AlertaLlamados } from './AlertaLlamados';
 import { PatientTable } from './PatientTable';
 import { DuplasModal } from './DuplasModal';
 import { UsuariosModal } from './UsuariosModal';
@@ -50,6 +51,8 @@ export const DashboardLayout: React.FC = () => {
               por duplas interdisciplinarias.
             </p>
           </div>
+
+          <AlertaLlamados data={pacientes.data} status={pacientes.status} />
 
           <KpiCards data={pacientes.data} status={pacientes.status} />
 

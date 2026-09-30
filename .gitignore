@@ -44,3 +44,7 @@ next-env.d.ts
 
 # env templates (las credenciales reales viven en .env.local)
 !.env.example
+
+# scripts temporales de QA en navegador
+verify-*.mjs
+tmp-*.mjs

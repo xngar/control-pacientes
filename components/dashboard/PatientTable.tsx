@@ -5,6 +5,7 @@ import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
 import { notificar } from '@/lib/notifications';
 import { exportPacientesToExcel } from '@/lib/export/exportExcel';
+import { normalizeFecha } from '@/lib/fechas';
 import { usePacientes, type UsePacientesResult } from '@/lib/hooks/usePacientes';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -35,17 +36,6 @@ interface PatientTableProps {
 }
 
 const ESTADOS = ['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado'];
-
-/**
- * La columna FECHA MAX CONTACTO guarda fechas ISO (YYYY-MM-DD), pero algunos
- * registros arrastran formato libre desde planillas. Normalizar deja comparar
- * contra lo que entrega <input type="date"> sin depender de como se escribió.
- */
-const normalizeFecha = (valor?: string | null): string => {
-  const texto = (valor ?? '').trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-  return iso ? `${iso[1]}-${iso[2]}-${iso[3]}` : texto.toLowerCase();
-};
 
 const getEstadoVariant = (estado: string) => {
   if (estado === 'Activo') return 'success' as const;
