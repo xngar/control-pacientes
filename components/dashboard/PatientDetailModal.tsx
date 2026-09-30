@@ -75,7 +75,7 @@ export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 id={titleId} className="text-lg font-bold text-text tracking-tight truncate">
+              <h2 id={titleId} className="text-lg font-bold text-text tracking-tight truncate" title={paciente.nombre}>
                 {paciente.nombre}
               </h2>
               <Badge variant={estadoVariant(paciente.estado)} dot>
@@ -238,16 +238,22 @@ export const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
                 return (
                   <div
                     key={n}
-                    className={`px-3 py-2.5 rounded-[var(--radius-sm)] border text-[13px] flex items-center justify-between gap-3 ${
+                    className={`px-3 py-2.5 rounded-[var(--radius-sm)] border text-[13px] ${
                       value
                         ? 'bg-surface border-border'
-                        : 'bg-surface-muted/50 border-dashed border-border text-text-muted'
+                        : 'bg-surface-muted/50 border-dashed border-border'
                     }`}
                   >
                     <span className="font-semibold text-text">Atención {n}</span>
-                    <span className={value ? 'text-text truncate' : 'text-text-muted italic shrink-0'}>
-                      {value || 'Sin registro'}
-                    </span>
+                    {/* El comentario se muestra completo: se envuelve en varias líneas
+                        en vez de recortarse, para que nada quede ilegible. */}
+                    {value ? (
+                      <p className="mt-1 text-text leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                        {value}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-text-muted italic">Sin registro</p>
+                    )}
                   </div>
                 );
               })}

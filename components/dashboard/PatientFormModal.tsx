@@ -4,13 +4,14 @@ import React, { useState, useEffect, useId } from 'react';
 import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
 import { notificar } from '@/lib/notifications';
+import { formatearRut } from '@/lib/utils/rut';
 import { duplaService } from '@/services/duplaService';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { IconButton } from '@/components/ui/IconButton';
 import { Modal } from '@/components/ui/Modal';
 import { CardFooter } from '@/components/ui/Card';
-import { AlertCircle, X, Save, UserPlus, Edit3, ChevronDown } from 'lucide-react';
+import { AlertCircle, X, Save, UserPlus, Edit3, ChevronDown, Hash } from 'lucide-react';
 
 interface PatientFormModalProps {
   isOpen: boolean;
@@ -279,7 +280,9 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 label="RUT"
                 placeholder="Ej: 21.987.654-1"
                 value={formData.rut}
-                onChange={(e) => handleChange('rut', e.target.value)}
+                onChange={(e) => handleChange('rut', formatearRut(e.target.value))}
+                inputMode="numeric"
+                leftIcon={<Hash className="w-4 h-4" />}
                 required
               />
               <Input
