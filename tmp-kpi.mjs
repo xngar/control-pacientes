@@ -1,0 +1,24 @@
+﻿const { createClient } = await import('@supabase/supabase-js');
+import { readFileSync } from 'node:fs';
+const env = Object.fromEntries(readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l.includes('=')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^["']|["']$/g,'')];}));
+const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false}});
+const { data: link } = await admin.auth.admin.generateLink({ type:'magiclink', email:'mantonio.zr@gmail.com', options:{ redirectTo:'http://localhost:3000/admin' }});
+const tab = await fetch('http://127.0.0.1:9341/json/new?about:blank',{method:'PUT'}).then(x=>x.json());
+const ws = new WebSocket(tab.webSocketDebuggerUrl);
+let id=0; const pend=new Map();
+ws.addEventListener('message',e=>{const m=JSON.parse(e.data); if(m.id&&pend.has(m.id)){const p=pend.get(m.id);pend.delete(m.id);m.error?p.rej(new Error(JSON.stringify(m.error))):p.res(m.result);}});
+const send=(method,params={})=>new Promise((res,rej)=>{const i=++id;pend.set(i,{res,rej});ws.send(JSON.stringify({id:i,method,params}));});
+const ev=async x=>{const q=await send('Runtime.evaluate',{expression:x,awaitPromise:true,returnByValue:true}); if(q.exceptionDetails) throw new Error(q.exceptionDetails.exception?.description); return q.result.value;};
+const wait=ms=>new Promise(x=>setTimeout(x,ms));
+if (ws.readyState !== 1) await new Promise((x, rej) => { const t = setTimeout(() => rej(new Error('ws')), 20000); ws.addEventListener('open', () => { clearTimeout(t); x(); }, { once: true }); });
+await send('Page.enable'); await send('Runtime.enable');
+await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+await send('Page.navigate',{url:link.properties.action_link});
+await wait(9000);
+if(await ev('location.pathname')!=='/admin'){await send('Page.navigate',{url:'http://localhost:3000/admin'});await wait(6000);}
+await wait(2000);
+console.log(await ev(`(()=>{const t=document.getElementById('pacientes');const kpi=t.previousElementSibling;
+ const cards=[...kpi.querySelectorAll(':scope > div > div')].map(c=>({t:c.textContent.trim().slice(0,22),h:Math.round(c.getBoundingClientRect().height),w:Math.round(c.getBoundingClientRect().width)}));
+ return {altoKpi:Math.round(kpi.getBoundingClientRect().height), topTabla:Math.round(t.getBoundingClientRect().top), cards};})()`));
+ws.close(); await fetch('http://127.0.0.1:9341/json/close/'+tab.id).catch(()=>{});
+

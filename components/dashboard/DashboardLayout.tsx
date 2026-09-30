@@ -40,12 +40,12 @@ export const DashboardLayout: React.FC = () => {
           onOpenPerfil={() => setIsPerfilModalOpen(true)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-full overflow-x-hidden">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight">
+        <main className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-full overflow-x-hidden">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h1 className="text-base sm:text-lg font-bold text-text tracking-tight">
               Panel de control y seguimiento de pacientes
             </h1>
-            <p className="text-[13px] sm:text-sm text-text-muted mt-1">
+            <p className="text-xs sm:text-[13px] text-text-muted">
               Bienvenido/a, <span className="font-semibold text-text">{user?.nombreCompleto}</span>. Registro clínico
               por duplas interdisciplinarias.
             </p>

@@ -84,7 +84,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ data, status }) => {
     });
     return Array.from(totals, ([dupla, atenciones]) => ({ dupla, atenciones }))
       .sort((a, b) => b.atenciones - a.atenciones)
-      .slice(0, 6);
+      .slice(0, 4);
   }, [data]);
 
   const maxAtenciones = porDupla.reduce((acc, d) => Math.max(acc, d.atenciones), 0);
@@ -111,76 +111,74 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ data, status }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+      <div className="xl:col-span-2 grid grid-cols-2 xl:grid-cols-4 gap-3">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
-            <Card key={metric.label} className="p-5">
-              <div className="flex items-center gap-2.5">
+            <Card key={metric.label} className="p-3">
+              <div className="flex items-center gap-2">
                 <span
-                  className={`w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${toneClasses[metric.tone]}`}
+                  className={`w-7 h-7 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${toneClasses[metric.tone]}`}
                   aria-hidden="true"
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                 </span>
-                <span className="text-[13px] font-semibold text-text">{metric.label}</span>
+                <span className="text-xs font-semibold text-text-muted leading-tight min-w-0">
+                  {metric.label}
+                </span>
+                <span className="ml-auto text-xl sm:text-2xl font-bold text-text tracking-tight tnum shrink-0">
+                  {formatNumber(metric.value)}
+                </span>
               </div>
-              <p className="mt-4 text-2xl sm:text-3xl font-bold text-text tracking-tight tnum">
-                {formatNumber(metric.value)}
-              </p>
-              <p className="mt-1.5 text-[13px] text-text-muted">{metric.context}</p>
+              <p className="mt-1 text-[11px] text-text-muted leading-snug">{metric.context}</p>
             </Card>
           );
         })}
       </div>
 
-      <Card className="p-5 flex flex-col">
-        <h2 className="text-sm font-semibold text-text">Atenciones por dupla</h2>
-        <p className="text-[13px] text-text-muted mt-0.5">
-          {totalGeneral > 0
-            ? `${formatNumber(totalGeneral)} atenciones registradas`
-            : 'Sin atenciones registradas'}
-        </p>
+      <Card className="p-3 flex flex-col">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-xs font-semibold text-text">Atenciones por dupla</h2>
+          <p className="text-[11px] text-text-muted tnum shrink-0">
+            {totalGeneral > 0
+              ? `${formatNumber(totalGeneral)} registradas`
+              : 'Sin atenciones'}
+          </p>
+        </div>
 
         {porDupla.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-            <Inbox className="w-6 h-6 text-text-muted mb-2" aria-hidden="true" />
-            <p className="text-[13px] text-text-muted">Aún no hay atenciones que graficar.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+            <Inbox className="w-5 h-5 text-text-muted mb-1.5" aria-hidden="true" />
+            <p className="text-xs text-text-muted">Aún no hay atenciones que graficar.</p>
           </div>
         ) : (
-          <ul className="flex-1 flex flex-col justify-center gap-3 mt-4">
+          <ul className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-x-4 gap-y-1.5 mt-2.5 content-center">
             {porDupla.map(({ dupla, atenciones }) => {
               const pct = maxAtenciones > 0 ? Math.round((atenciones / maxAtenciones) * 100) : 0;
               return (
-                <li key={dupla}>
-                  <div className="flex items-baseline justify-between gap-3 mb-1">
-                    <span className="text-[13px] text-text truncate" title={dupla}>
-                      {dupla}
-                    </span>
-                    <span className="text-[13px] font-semibold text-text-muted tnum shrink-0">
-                      {formatNumber(atenciones)}
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 rounded-[var(--radius-full)] bg-surface-muted overflow-hidden"
+                <li key={dupla} className="flex items-center gap-2">
+                  <span className="text-xs text-text truncate min-w-0 flex-1" title={dupla}>
+                    {dupla}
+                  </span>
+                  <span
+                    className="h-1.5 w-14 sm:w-10 xl:w-16 shrink-0 rounded-[var(--radius-full)] bg-surface-muted overflow-hidden"
                     role="img"
                     aria-label={`${dupla}: ${atenciones} atenciones, ${pct}% del máximo`}
                   >
-                    <div
-                      className="h-full rounded-[var(--radius-full)] bg-primary transition-[width] duration-500 ease-out"
+                    <span
+                      className="block h-full rounded-[var(--radius-full)] bg-primary transition-[width] duration-500 ease-out"
                       style={{ width: `${Math.max(pct, atenciones > 0 ? 4 : 0)}%` }}
                     />
-                  </div>
+                  </span>
+                  <span className="text-xs font-semibold text-text-muted tnum shrink-0 w-7 text-right">
+                    {formatNumber(atenciones)}
+                  </span>
                 </li>
               );
             })}
           </ul>
         )}
-
-        <p className="mt-auto pt-4 text-[13px] text-text-muted leading-relaxed">
-          Suma de atenciones registradas por cada dupla responsable.
-        </p>
       </Card>
     </div>
   );
