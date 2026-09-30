@@ -15,8 +15,6 @@ import {
   MessageSquare,
   HeartPulse,
   FileText,
-  BarChart3,
-  Layers,
   Settings,
   ShieldCheck,
   HelpCircle,
@@ -75,13 +73,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Alertas y mensajes', icon: MessageSquare },
         { label: 'Registro atenciones', icon: HeartPulse },
         { label: 'Fichas clínicas', icon: FileText },
-      ],
-    },
-    {
-      title: 'Análisis',
-      items: [
-        { label: 'Analítica y UEGO', icon: BarChart3 },
-        { label: 'Tipologías y diagnósticos', icon: Layers },
       ],
     },
     {
@@ -169,7 +160,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
 
                 if (item.href) {
-                  const isHash = item.href.startsWith('#');
                   return (
                     <li key={item.label}>
                       <a

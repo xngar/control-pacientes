@@ -35,8 +35,6 @@ export const DashboardLayout: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header
-          searchQuery={searchQuery}
-          onSearch={setSearchQuery}
           onToggleSidebar={() => setMobileNavOpen((o) => !o)}
           sidebarOpen={mobileNavOpen}
           onOpenPerfil={() => setIsPerfilModalOpen(true)}

@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { notificar } from '@/lib/notifications';
 import { Badge } from '@/components/ui/Badge';
 import { IconButton } from '@/components/ui/IconButton';
-import { Search, Mail, Bell, ChevronDown, LogOut, X, Menu, UserCog } from 'lucide-react';
+import { Mail, Bell, ChevronDown, LogOut, X, Menu, UserCog } from 'lucide-react';
 
 const PENDING_TOOLS = [
   { label: 'Notificaciones', icon: Bell },
@@ -14,44 +14,20 @@ const PENDING_TOOLS = [
 ];
 
 interface HeaderProps {
-  searchQuery: string;
-  onSearch: (value: string) => void;
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
   onOpenPerfil: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  searchQuery,
-  onSearch,
   onToggleSidebar,
   sidebarOpen,
   onOpenPerfil,
 }) => {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isAdmin = user?.rol === 'ADMIN';
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
-      if (isShortcut) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-        return;
-      }
-      if (e.key === 'Escape' && document.activeElement === inputRef.current) {
-        onSearch('');
-        inputRef.current?.blur();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onSearch]);
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -84,28 +60,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </IconButton>
-
-        <div className="relative flex-1 max-w-2xl">
-          <label htmlFor="patient-search" className="sr-only">
-            Buscar pacientes
-          </label>
-          <Search
-            className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-            aria-hidden="true"
-          />
-          <input
-            id="patient-search"
-            ref={inputRef}
-            type="search"
-            value={searchQuery}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Buscar por RUT, paciente, dupla o diagnóstico..."
-            className="w-full bg-surface-muted border border-border rounded-[var(--radius-sm)] pl-9 pr-20 py-2 text-sm text-text placeholder:text-text-muted focus:bg-surface focus:border-primary transition-colors"
-          />
-          <kbd className="hidden sm:block absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-text-muted bg-surface border border-border rounded-[var(--radius-xs)] px-1.5 py-0.5 select-none pointer-events-none">
-            Ctrl K
-          </kbd>
-        </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
           {PENDING_TOOLS.map(({ label, icon: Icon }) => (
