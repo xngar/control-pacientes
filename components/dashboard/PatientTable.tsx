@@ -629,25 +629,25 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                     columna. */}
                 <tr className="bg-surface-muted border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
                   {/*
-                    Las tres columnas fijas deben declarar un ancho exacto: los
-                    `left` del sticky son el acumulado de esos anchos. Si no
-                    cuadran, las celdas se superponen (antes N° quedaba encima
-                    de la última acción) y en móvil el bloque fijo llegaba a
-                    ~412px, más ancho que la pantalla, tapando todos los datos.
+                    Las columnas fijas deben declarar un ancho exacto: los `left`
+                    del sticky son el acumulado de esos anchos. Si no cuadran, las
+                    celdas se superponen (antes N° quedaba encima de la última
+                    acción) y en móvil el bloque fijo llegaba a ~412px, más ancho
+                    que la pantalla, tapando todos los datos.
 
-                    En móvil la columna N° se oculta y el avatar desaparece para
-                    dejar el bloque fijo en 256px y que quepan ~119px de datos
-                    al desplazar hacia la derecha.
+                    En móvil solo queda fija Acciones (116px); el nombre y el resto
+                    de datos se desplazan. Desde `sm` se fijan las tres: 116 + 64
+                    + 200 = 380px.
                   */}
                   <Th className="sticky left-0 bg-surface-muted z-20 px-3" ancho="w-[116px]">
                     Acciones
                   </Th>
-                  <Th className="hidden sm:table-cell sticky sm:left-[116px] bg-surface-muted z-20" ancho="sm:w-16" center>
+                  <Th className="sm:sticky sm:left-[116px] bg-surface-muted z-20" ancho="w-16" center>
                     N°
                   </Th>
                   <Th
-                    className="sticky left-[116px] sm:left-[180px] bg-surface-muted z-20 border-r border-border px-4"
-                    ancho="w-[140px] sm:w-[200px]"
+                    className="sm:sticky sm:left-[180px] bg-surface-muted z-20 border-r border-border px-4"
+                    ancho="w-[200px]"
                   >
                     Nombre paciente
                   </Th>
@@ -746,12 +746,12 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                         </IconButton>
                       </div>
                     </td>
-                    <td className="hidden sm:table-cell py-2.5 px-3 font-semibold text-text-muted sticky sm:left-[116px] bg-surface z-10 tnum">
+                    <td className="py-2.5 px-3 font-semibold text-text-muted sm:sticky sm:left-[116px] sm:bg-surface z-10 tnum">
                       {paciente.numero}
                     </td>
-                    <td className="py-2.5 px-4 font-bold text-text sticky left-[116px] sm:left-[180px] bg-surface z-10 border-r border-border w-[140px] sm:w-[200px]">
+                    <td className="py-2.5 px-4 font-bold text-text sm:sticky sm:left-[180px] sm:bg-surface z-10 border-r border-border w-[200px]">
                       <div className="flex items-center gap-2">
-                        <span className="hidden sm:flex w-6 h-6 rounded-[var(--radius-full)] bg-primary/10 text-primary-text items-center justify-center text-[11px] font-bold shrink-0">
+                        <span className="flex w-6 h-6 rounded-[var(--radius-full)] bg-primary/10 text-primary-text items-center justify-center text-[11px] font-bold shrink-0">
                           {paciente.nombre.charAt(0).toUpperCase()}
                         </span>
                         <span className="truncate min-w-0">{paciente.nombre}</span>
