@@ -25,6 +25,16 @@ export const hoyISO = (): string => {
 };
 
 /**
+ * Año de una fecha ISO, o cadena vacía si no es interpretable.
+ * Se usa para filtrar el registro por año sin construir objetos Date en
+ * cada fila.
+ */
+export const anioDeFecha = (fecha?: string | null): string => {
+  const iso = normalizeFecha(fecha);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.slice(0, 4) : '';
+};
+
+/**
  * Dias entre hoy y una fecha: negativo = la fecha ya paso, 0 = hoy,
  * positivo = futura. Devuelve `null` si la fecha no es ISO interpretable.
  */

@@ -124,6 +124,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [duplas, setDuplas] = useState<string[]>([]);
   const duplaFieldId = useId();
+  /**
+   * Edad escrita en el campo, como texto. Guardarla como número hace que el
+   * input no pueda quedarse vacío: `parseInt('')` es `NaN` y el `|| 0` devuelve
+   * 0, con lo que borrar el campo lo repone a "0" y ya no hay forma de
+   * eliminarlo. Como 0 además es una edad válida (lactante), no puede usarse
+   * como marcador de "vacío".
+   */
+  const [edadTexto, setEdadTexto] = useState(String(DEFAULT_PACIENTE.edad));
 
   const isEditing = !!pacienteToEdit?.id;
   const formKey = isOpen ? (pacienteToEdit?.id ?? 'new') : null;
@@ -155,6 +163,9 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         tipologia: TIPOLOGIAS.includes(rest.tipologia) ? null : rest.tipologia,
         diagnostico: DIAGNOSTICOS.includes(rest.diagnostico) ? null : rest.diagnostico,
       });
+      setEdadTexto(
+        typeof rest.edad === 'number' && Number.isFinite(rest.edad) ? String(rest.edad) : '',
+      );
       setFormData({
         ...rest,
         tipologia: TIPOLOGIAS.includes(rest.tipologia) ? rest.tipologia : '',
@@ -167,6 +178,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       });
     } else {
       setFueraDeCatalogo({ tipologia: null, diagnostico: null });
+      setEdadTexto(String(DEFAULT_PACIENTE.edad));
       setFormData({ ...DEFAULT_PACIENTE, ...derivarFechas(DEFAULT_PACIENTE, { recalcularEgreso: true }) });
     }
     setEgresoManual(false);
@@ -232,10 +244,19 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
       return;
     }
 
+    // La edad vive como texto mientras se escribe para poder dejarla vacía;
+    // aquí vuelve a número, que es lo que guarda la ficha.
+    const edadParseada = Number.parseInt(edadTexto.trim(), 10);
+    if (edadTexto.trim() !== '' && (Number.isNaN(edadParseada) || edadParseada < 0 || edadParseada > 120)) {
+      setError('La edad debe ser un número entre 0 y 120.');
+      return;
+    }
+    const payload = { ...formData, edad: Number.isNaN(edadParseada) ? 0 : edadParseada };
+
     setIsSaving(true);
     try {
       if (isEditing && pacienteToEdit?.id) {
-        const res = await pacienteService.update(pacienteToEdit.id, formData);
+        const res = await pacienteService.update(pacienteToEdit.id, payload);
         if (!res.success) {
           setError(res.error || 'No se pudo actualizar el paciente.');
           notificar.fallo('No se pudo actualizar la ficha', res.error);
@@ -244,12 +265,12 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
         }
         notificar.exito('Ficha actualizada', `Los cambios de ${formData.nombre.trim()} quedaron guardados.`);
         onSaved({
-          ...formData,
+          ...payload,
           id: pacienteToEdit.id,
           numero: pacienteToEdit.numero,
         });
       } else {
-        const res = await pacienteService.create(formData);
+        const res = await pacienteService.create(payload);
         if (res.error || !res.data) {
           setError(res.error || 'No se pudo guardar el paciente.');
           notificar.fallo('No se pudo guardar la ficha', res.error);
@@ -337,8 +358,12 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({
                 type="number"
                 min={0}
                 max={120}
-                value={formData.edad}
-                onChange={(e) => handleChange('edad', parseInt(e.target.value, 10) || 0)}
+                value={edadTexto}
+                onChange={(e) => {
+                  setEdadTexto(e.target.value);
+                  const parsed = Number.parseInt(e.target.value, 10);
+                  handleChange('edad', Number.isNaN(parsed) ? 0 : parsed);
+                }}
               />
               <Input
                 label="EG"

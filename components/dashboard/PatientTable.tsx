@@ -5,7 +5,7 @@ import { RegistroPaciente } from '@/types/paciente';
 import { pacienteService } from '@/services/pacienteService';
 import { notificar } from '@/lib/notifications';
 import { exportPacientesToExcel } from '@/lib/export/exportExcel';
-import { normalizeFecha } from '@/lib/fechas';
+import { anioDeFecha, normalizeFecha } from '@/lib/fechas';
 import { usePacientes, type UsePacientesResult } from '@/lib/hooks/usePacientes';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
@@ -36,6 +36,9 @@ interface PatientTableProps {
 }
 
 const ESTADOS = ['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado'];
+
+/** Etiqueta del año para los registros sin fecha de derivación cargada. */
+const ANIO_SIN_FECHA = 'Sin fecha';
 
 const getEstadoVariant = (estado: string) => {
   if (estado === 'Activo') return 'success' as const;
@@ -100,6 +103,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
 }) => {
   const [estadoFilter, setEstadoFilter] = useState('Todos');
   const [duplaFilter, setDuplaFilter] = useState('Todas');
+  const [anioFilter, setAnioFilter] = useState('Todos');
   const [fechaMaxFiltro, setFechaMaxFiltro] = useState('');
   const [isFechaPopoverOpen, setIsFechaPopoverOpen] = useState(false);
   const fechaPopoverRef = useRef<HTMLDivElement>(null);
@@ -118,20 +122,50 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     [data],
   );
 
+  /**
+   * Años disponibles según la fecha de derivación de cada registro, de más
+   * reciente a más antiguo. Los registros sin fecha derivación no tienen año
+   * propio: se agrupan bajo "Sin fecha" para que elegir un año no los haga
+   * desaparecer sin explicación.
+   */
+  const anios = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of data) {
+      const anio = anioDeFecha(p.fechaDerivacionDupla);
+      if (anio) set.add(anio);
+    }
+    const ordenados = Array.from(set).sort((a, b) => b.localeCompare(a));
+    const haySinFecha = data.some((p) => !anioDeFecha(p.fechaDerivacionDupla));
+    return haySinFecha ? [...ordenados, ANIO_SIN_FECHA] : ordenados;
+  }, [data]);
+
+  /**
+   * Si tras un refresh el año elegido ya no existe en los datos, la opción se
+   * mantiene igual: sin esto el <select> se renderizaría vacío y el usuario
+   * vería un filtro activo que no puede leer ni desactivar.
+   */
+  const opcionesAnio =
+    anioFilter === 'Todos' || anios.includes(anioFilter) ? anios : [anioFilter, ...anios];
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return data.filter((p) => {
       const matchesEstado = estadoFilter === 'Todos' || p.estado === estadoFilter;
       const matchesDupla = duplaFilter === 'Todas' || p.duplaACargo === duplaFilter;
+      const matchesAnio =
+        anioFilter === 'Todos' ||
+        (anioFilter === ANIO_SIN_FECHA
+          ? !anioDeFecha(p.fechaDerivacionDupla)
+          : anioDeFecha(p.fechaDerivacionDupla) === anioFilter);
       const matchesQuery =
         !q ||
         p.nombre?.toLowerCase().includes(q) ||
         p.rut?.toLowerCase().includes(q) ||
         p.diagnostico?.toLowerCase().includes(q) ||
         p.duplaACargo?.toLowerCase().includes(q);
-      return matchesEstado && matchesDupla && matchesQuery;
+      return matchesEstado && matchesDupla && matchesAnio && matchesQuery;
     });
-  }, [data, searchQuery, estadoFilter, duplaFilter]);
+  }, [data, searchQuery, estadoFilter, duplaFilter, anioFilter]);
 
   /**
    * El filtro de fecha no oculta filas: solo las sube. Los registros que tienen
@@ -158,6 +192,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     onSearchChange('');
     setEstadoFilter('Todos');
     setDuplaFilter('Todas');
+    setAnioFilter('Todos');
     setFechaMaxFiltro('');
   };
 
@@ -259,6 +294,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     searchQuery.trim() !== '' ||
     estadoFilter !== 'Todos' ||
     duplaFilter !== 'Todas' ||
+    anioFilter !== 'Todos' ||
     fechaMaxFiltro !== '';
 
   return (
@@ -364,6 +400,29 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 {duplas.map((dupla) => (
                   <option key={dupla} value={dupla}>
                     {dupla}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="w-4 h-4 text-text-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+            </div>
+
+            <div className="relative sm:w-44">
+              <label htmlFor="filtro-anio" className="sr-only">
+                Filtrar por año de derivación
+              </label>
+              <select
+                id="filtro-anio"
+                value={anioFilter}
+                onChange={(e) => setAnioFilter(e.target.value)}
+                className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
+              >
+                <option value="Todos">Todos los años</option>
+                {opcionesAnio.map((anio) => (
+                  <option key={anio} value={anio}>
+                    {anio === ANIO_SIN_FECHA ? anio : `Año ${anio}`}
                   </option>
                 ))}
               </select>
