@@ -605,7 +605,7 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
       ) : (
         <>
 <p className="px-4 py-2 text-[13px] text-text-muted border-b border-border bg-surface-muted flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>Desplaza la tabla en horizontal para ver las 37 columnas</span>
+              <span>Desplaza la tabla en horizontal para ver todas las columnas</span>
               {fechaMaxFiltro && (
                 <span className="inline-flex items-center gap-1.5 text-primary font-medium">
                   <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />
@@ -628,11 +628,27 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                     del encabezado tiene una altura acotada por muy larga que sea la
                     columna. */}
                 <tr className="bg-surface-muted border-b border-border text-text-muted uppercase tracking-wider font-semibold text-[11px]">
-                  <Th className="sticky left-0 bg-surface-muted z-20 px-4">Acciones</Th>
-                  <Th className="sticky left-20 bg-surface-muted z-20" center>
+                  {/*
+                    Las tres columnas fijas deben declarar un ancho exacto: los
+                    `left` del sticky son el acumulado de esos anchos. Si no
+                    cuadran, las celdas se superponen (antes N° quedaba encima
+                    de la última acción) y en móvil el bloque fijo llegaba a
+                    ~412px, más ancho que la pantalla, tapando todos los datos.
+
+                    En móvil la columna N° se oculta y el avatar desaparece para
+                    dejar el bloque fijo en 256px y que quepan ~119px de datos
+                    al desplazar hacia la derecha.
+                  */}
+                  <Th className="sticky left-0 bg-surface-muted z-20 px-3" ancho="w-[116px]">
+                    Acciones
+                  </Th>
+                  <Th className="hidden sm:table-cell sticky sm:left-[116px] bg-surface-muted z-20" ancho="sm:w-16" center>
                     N°
                   </Th>
-                  <Th className="sticky left-32 bg-surface-muted z-20 border-r border-border px-4" ancho="min-w-[132px]">
+                  <Th
+                    className="sticky left-[116px] sm:left-[180px] bg-surface-muted z-20 border-r border-border px-4"
+                    ancho="w-[140px] sm:w-[200px]"
+                  >
                     Nombre paciente
                   </Th>
                   <Th>RUT</Th>
@@ -701,7 +717,7 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                       enTope ? 'bg-error/10 hover:bg-error/15' : 'hover:bg-primary/5'
                     }`}
                   >
-                    <td className="py-2.5 px-4 sticky left-0 bg-surface z-10">
+                    <td className="py-2.5 px-3 sticky left-0 bg-surface z-10">
                       <div className="flex items-center gap-1">
                         <IconButton
                           label={`Ver ficha de ${paciente.nombre}`}
@@ -730,15 +746,15 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                         </IconButton>
                       </div>
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-text-muted sticky left-20 bg-surface z-10 tnum">
+                    <td className="hidden sm:table-cell py-2.5 px-3 font-semibold text-text-muted sticky sm:left-[116px] bg-surface z-10 tnum">
                       {paciente.numero}
                     </td>
-                    <td className="py-2.5 px-4 font-bold text-text sticky left-32 bg-surface z-10 border-r border-border">
+                    <td className="py-2.5 px-4 font-bold text-text sticky left-[116px] sm:left-[180px] bg-surface z-10 border-r border-border w-[140px] sm:w-[200px]">
                       <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-[var(--radius-full)] bg-primary/10 text-primary-text flex items-center justify-center text-[11px] font-bold shrink-0">
+                        <span className="hidden sm:flex w-6 h-6 rounded-[var(--radius-full)] bg-primary/10 text-primary-text items-center justify-center text-[11px] font-bold shrink-0">
                           {paciente.nombre.charAt(0).toUpperCase()}
                         </span>
-                        <span className="truncate max-w-[180px]">{paciente.nombre}</span>
+                        <span className="truncate min-w-0">{paciente.nombre}</span>
                       </div>
                     </td>
                     <td className="py-2.5 px-4 font-mono text-text tnum whitespace-nowrap">{paciente.rut}</td>
