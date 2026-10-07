@@ -9,17 +9,21 @@ export interface PacientesResult {
   error?: string;
 }
 
+/** Ordena por numero descendente: el más reciente (mayor) queda primero. */
+const ordenarMasRecientes = (rows: RegistroPaciente[]): RegistroPaciente[] =>
+  [...rows].sort((a, b) => b.numero - a.numero);
+
 export const pacienteService = {
   async getAll(): Promise<PacientesResult> {
     try {
       const { data, error } = await supabase
         .from('pacientes_seguimiento')
         .select('*')
-        .order('numero', { ascending: true });
+        .order('numero', { ascending: false });
 
       if (error) {
         console.warn('Supabase query error, using local demo data fallback:', error);
-        return { data: MOCK_PACIENTES, source: 'demo', error: error.message };
+        return { data: ordenarMasRecientes(MOCK_PACIENTES), source: 'demo', error: error.message };
       }
 
       if (!data) {
@@ -28,7 +32,8 @@ export const pacienteService = {
 
       return {
         source: 'database',
-        data: data.map((row: any) => ({
+        data: ordenarMasRecientes(
+          data.map((row: any) => ({
         id: row.id,
         numero: row.numero,
         duplaACargo: row.dupla_a_cargo || 'Sin dupla asignada',
@@ -68,11 +73,12 @@ export const pacienteService = {
         totalAtenciones: row.total_atenciones || 0,
         observacionAtenciones: row.observacion_atenciones || '',
       })),
+        ),
       };
     } catch (err) {
       console.error('Error fetching patients from Supabase:', err);
       return {
-        data: MOCK_PACIENTES,
+        data: ordenarMasRecientes(MOCK_PACIENTES),
         source: 'demo',
         error: err instanceof Error ? err.message : 'No fue posible conectar con la base de datos.',
       };

@@ -57,8 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'Principal',
       items: [
-        { label: 'Dashboard', icon: LayoutDashboard, href: isAdmin ? '/admin' : '/clinico', active: true },
-        { label: 'Pacientes', icon: UserCheck, href: '#pacientes' },
+        { label: 'Dashboard', icon: LayoutDashboard, href: isAdmin ? '/admin' : '/clinico' },
+        { label: 'Pacientes', icon: UserCheck, href: '/pacientes' },
       ],
     },
     {
@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
             <ul className="space-y-0.5 px-2">
               {group.items.map((item) => {
-                const isCurrent = item.active || (item.href === '#pacientes' && pathname?.includes('clinico'));
+                const isCurrent = item.href ? pathname === item.href : false;
                 const Icon = item.icon;
                 const content = (
                   <>

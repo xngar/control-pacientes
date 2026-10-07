@@ -23,6 +23,8 @@ import {
   Search,
   Inbox,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   UserCheck,
   CalendarDays,
@@ -39,6 +41,9 @@ const ESTADOS = ['Activo', 'En Seguimiento', 'En Espera', 'Egresado', 'Derivado'
 
 /** Etiqueta del año para los registros sin fecha de derivación cargada. */
 const ANIO_SIN_FECHA = 'Sin fecha';
+
+/** Filas por página del registro clínico. */
+const FILAS_POR_PAGINA = 15;
 
 const getEstadoVariant = (estado: string) => {
   if (estado === 'Activo') return 'success' as const;
@@ -187,6 +192,30 @@ export const PatientTable: React.FC<PatientTableProps> = ({
     const objetivo = normalizeFecha(fechaMaxFiltro);
     return filtered.filter((p) => normalizeFecha(p.fechaMaximaContactoInicial) === objetivo).length;
   }, [filtered, fechaMaxFiltro]);
+
+  /** Paginación: el registro se parte en páginas de 15, listando primero los más recientes. */
+  const [pagina, setPagina] = useState(1);
+  const paginaCount = Math.max(1, Math.ceil(ordenados.length / FILAS_POR_PAGINA));
+  const paginaActual = Math.min(pagina, paginaCount);
+  const paginaRows = useMemo(
+    () => ordenados.slice((paginaActual - 1) * FILAS_POR_PAGINA, paginaActual * FILAS_POR_PAGINA),
+    [ordenados, paginaActual],
+  );
+  const primerIndice = (paginaActual - 1) * FILAS_POR_PAGINA + 1;
+  const ultimoIndice = Math.min(ordenados.length, paginaActual * FILAS_POR_PAGINA);
+  const irPagina = (destino: number) =>
+    setPagina(Math.min(Math.max(1, destino), paginaCount));
+
+  // Cambiar cualquier filtro vuelve a la primera página; no tiene sentido
+  // quedarse en la página 3 viendo un resultado que ya no existe arriba. Se
+  // resuelve ajustando estado durante el render (patrón oficial de React),
+  // y no en un efecto, para no encadenar renders.
+  const [filtrosActivos, setFiltrosActivos] = useState('');
+  const firmaFiltros = `${searchQuery}|${estadoFilter}|${duplaFilter}|${anioFilter}|${fechaMaxFiltro}`;
+  if (firmaFiltros !== filtrosActivos) {
+    setFiltrosActivos(firmaFiltros);
+    setPagina(1);
+  }
 
   const limpiarFiltros = () => {
     onSearchChange('');
@@ -373,7 +402,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 onChange={(e) => setEstadoFilter(e.target.value)}
                 className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
               >
-                <option value="Todos">Todos los estados</option>
+                <option value="Todos">Filtrar por estados</option>
                 {ESTADOS.map((estado) => (
                   <option key={estado} value={estado}>
                     {estado}
@@ -396,7 +425,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 onChange={(e) => setDuplaFilter(e.target.value)}
                 className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
               >
-                <option value="Todas">Todas las duplas</option>
+                <option value="Todas">Filtrar por duplas</option>
                 {duplas.map((dupla) => (
                   <option key={dupla} value={dupla}>
                     {dupla}
@@ -419,7 +448,7 @@ export const PatientTable: React.FC<PatientTableProps> = ({
                 onChange={(e) => setAnioFilter(e.target.value)}
                 className="w-full appearance-none bg-surface border border-border rounded-[var(--radius-sm)] py-2.5 pl-3 pr-9 text-sm text-text focus:border-primary transition-colors cursor-pointer"
               >
-                <option value="Todos">Todos los años</option>
+                <option value="Todos">Filtrar por años</option>
                 {opcionesAnio.map((anio) => (
                   <option key={anio} value={anio}>
                     {anio === ANIO_SIN_FECHA ? anio : `Año ${anio}`}
@@ -703,7 +732,7 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
                 </tr>
               </thead>
               <tbody>
-                {ordenados.map((paciente) => {
+                {paginaRows.map((paciente) => {
                   // Marca la fila que el filtro de fecha subió, para que el reordenamiento
                   // se lea como resultado del filtro y no como un cambio de datos.
                   const enTope = fechaMaxFiltro !== '' && normalizeFecha(paciente.fechaMaximaContactoInicial) === normalizeFecha(fechaMaxFiltro);
@@ -839,6 +868,44 @@ className={`w-full justify-between sm:w-auto ${fechaMaxFiltro ? 'border-primary 
               </tbody>
             </table>
           </div>
+          {paginaCount > 1 && (
+            <nav
+              aria-label="Paginación del registro de pacientes"
+              className="px-4 py-3 border-t border-border flex flex-wrap items-center justify-between gap-3"
+            >
+              <p className="text-[13px] text-text-muted tnum">
+                Mostrando{' '}
+                <span className="font-semibold text-text">
+                  {primerIndice}-{ultimoIndice}
+                </span>{' '}
+                de <span className="font-semibold text-text">{ordenados.length}</span>{' '}
+                {ordenados.length === 1 ? 'registro' : 'registros'}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaActual === 1}
+                  onClick={() => irPagina(paginaActual - 1)}
+                  leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+                >
+                  Anterior
+                </Button>
+                <span className="text-[13px] text-text-muted tnum" role="status" aria-live="polite">
+                  Página <span className="font-semibold text-text">{paginaActual}</span> de {paginaCount}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={paginaActual === paginaCount}
+                  onClick={() => irPagina(paginaActual + 1)}
+                  rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </nav>
+          )}
           <p className="px-4 py-3 text-[13px] text-text-muted border-t border-border flex items-center gap-1.5">
             <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
             Usa el ojo para ver la ficha, el lápiz para editarla y la papelera para eliminarla.
